@@ -21,6 +21,14 @@ use Illuminate\Support\Facades\Route;
 
 //Route::middleware('auth:sanctum')->get('/user', [AuthController::class, 'user']);
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class,'login']);
-Route::post('/logout', [AuthController::class,'logout']);
+//Route::post('/register', [AuthController::class, 'register']);
+//Route::post('/login', [AuthController::class,'login']);
+//Route::post('/logout', [AuthController::class,'logout'])->middleware('auth:sanctum');
+
+Route::prefix('auth')->group(function () {
+
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class,'login']);
+    Route::post('/logout', [AuthController::class,'logout'])->middleware('auth:sanctum');
+
+});
