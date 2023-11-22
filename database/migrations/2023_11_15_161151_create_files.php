@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users');
             $table->string('path');
             $table->string('name');
+            $table->string('copy_path')->nullable();
             $table->foreignId('booker_id')->nullable()->constrained('users');
             $table->boolean('status');
             $table->timestamps();

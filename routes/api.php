@@ -40,13 +40,16 @@ Route::post('/createGroup', [GroupController::class, 'store']);
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
         Route::post('/upload', 'upload');
+        Route::post('/edit', 'edit');
         Route::post('/rename', 'rename');
         Route::post('/book', 'book');
+        Route::post('/unBook', 'unBook');
         Route::get('/myFiles', 'myFiles');
     });
 Route::prefix('/group/file')->controller(FileController::class)
     ->group(function () {
         Route::post('/add', 'addToGroup');
+        
         Route::get('/{id}', 'showGroupFiles');
     });
 Route::delete('/group/{group_id}/file/{file_id}', [FileController::class, 'removeFromGroup']);
