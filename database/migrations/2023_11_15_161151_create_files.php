@@ -15,8 +15,10 @@ return new class extends Migration
     {
         Schema::create('files', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('fk_user_id')->constrained('users');
+            $table->foreignId('user_id')->constrained('users');
             $table->string('path');
+            $table->string('name');
+            $table->foreignId('booker_id')->nullable()->constrained('users');
             $table->boolean('status');
             $table->timestamps();
         });
