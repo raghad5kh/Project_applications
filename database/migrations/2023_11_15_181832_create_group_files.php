@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('group_files', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('fk_file_id')->constrained('files');
-            $table->foreignId('fk_group_id')->constrained('groups');
+            $table->foreignId('file_id')->constrained('files');
+            $table->foreignId('group_id')->constrained('groups');
             $table->timestamps();
         });
     }
