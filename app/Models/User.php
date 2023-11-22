@@ -47,7 +47,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Group::class, 'user_id', 'id');
     }
-    public function file(){
+    public function files(){
         return $this ->hasMany(File::class);
     }
     public function group_member(){
