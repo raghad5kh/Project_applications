@@ -132,6 +132,7 @@ class FileController extends Controller
         // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
 
         // if (!($file->user_id == $user->id))
+        // $v=5;
 
             $file->status = false;
             $file->booker = $user->id;
