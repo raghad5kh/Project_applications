@@ -33,6 +33,18 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
+
+
+Route::prefix('group')->group(function () {
+    Route::post('/store', [GroupController::class, 'store']);
+    Route::post('/groupMember/{name_group}/{user}', [GroupController::class, 'groupMember']);
+    Route::delete('/destroy/{id}', [GroupController::class, 'destroy']);
+    Route::get('/allGroups', [GroupController::class, 'allGroups']);
+    Route::get('/usersGroup/{id}', [GroupController::class, 'usersGroup']);
+    Route::get('/viewUserGroup/{name}', [GroupController::class, 'viewUserGroup']);
+
+
+});
 Route::post('/createGroup', [GroupController::class, 'store']);
 // Route::get('/showGroupFiles/{id}', [FileController::class,'showGroupFiles']);
 // Route::post('/addToGroup', [FileController::class,'addToGroup']);
@@ -53,3 +65,4 @@ Route::prefix('/group/file')->controller(FileController::class)
         Route::get('/{id}', 'showGroupFiles');
     });
 Route::delete('/group/{group_id}/file/{file_id}', [FileController::class, 'removeFromGroup']);
+
