@@ -13,26 +13,65 @@ use Illuminate\Support\Facades\File as FFile;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Console\Input\Input;
 
 class FileController extends Controller
 {
 
     public function __construct()
     {
-        $this->middleware('auth:sanctum')
-            // ->only(
-            //     'upload',
-            //     'rename',
-            //     'book',
-            //     'myFiles'
-            // )
-        ;
+        $this->middleware('auth:sanctum');
     }
 
-    // public $based_path = "/images/";
+    public function read($id){
+        $file = File::where('id', $id)->first();
+        $user =  Auth::guard('web')->user();
+        if ($file->status == false) {
+            return response()->json([
+                'message' => "the file is not available !"
+            ], 400);
+        }
+        
+        // user is owner or in group that file is existed in it
+
+        $filePath =  $file->path;
+
+        // Check if the file exists
+        if (!file_exists($filePath)) {
+            echo $filePath;
+            return response()->json([
+                'message' => "file is not found"
+            ], 400);
+        }
+
+        // Set the headers for the response
+        $headers = [
+            'Content-Type' => Storage::mimeType('public/' .  $file->path),
+            'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+        ];
+
+        // Create and return the streamed response
+        // return response()->stream(
+        //     function () use ($filePath) {
+        //         $stream = fopen($filePath, 'r');
+        //         fpassthru($stream);
+        //         fclose($stream);
+        //     },
+        //     200,
+        //     $headers
+        // );
+        return response()->download($filePath, 'hi', $headers);
+    } 
 
     public function upload(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()], 400);
+        }
         $input_file = $request->file('file');
 
         $user =  Auth::guard('web')->user();
@@ -60,6 +99,41 @@ class FileController extends Controller
             'deatails' => $file
         ], 200);
     }
+ 
+    public function edit(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'file_id' => 'required',
+            'file' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()], 400);
+        }
+
+        $file = File::where('id', $request->file_id)->first();
+        $user =  Auth::guard('web')->user();
+
+        if ($file->status != false || $user->id != $file->booker_id) {
+            return response()->json(['message' => "forbidden !"], 400);
+        }
+        $input_file = $request->file('file');
+        // return  $input_file->getClientOriginalName();
+        if ($file->name != $input_file->getClientOriginalName()) {
+            return response()->json(['message' => "the name and extension must be similar to the orginal file !"], 400);
+        }
+
+        $file_path =  "public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
+        $input_file->move('public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
+        $file->copy_path = $file_path;
+        $file->save();
+
+        return response()->json([
+            'message' => "Uploading is done!",
+            'deatails' => $file
+        ], 200);
+    }
+
     public function rename(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -68,9 +142,12 @@ class FileController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => $validator->errors()], 402);
+            return response()->json(['message' => $validator->errors()], 400);
         }
         $user =  Auth::guard('web')->user();
+
+        $input_file = File::where('id', $request->id)->first();
+
         foreach ($user->files as $file) {
             if ($file->name == $request->name) {
                 return response()->json([
@@ -79,11 +156,14 @@ class FileController extends Controller
             }
         }
 
-        $input_file = File::where('id', $request->id)->first();
         if (!$request->user()->id == $input_file->user_id) {
             return response()->json([
                 'message' => "forbidden!"
-            ], 403);
+            ], 400);
+        } else if ($input_file->status == false) {
+            return response()->json([
+                'message' => "The file is booked !."
+            ], 400);
         }
 
         $oldFilePath = $input_file->path;
@@ -118,7 +198,7 @@ class FileController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => "data is unvalied"], 402);
+            return response()->json(['message' => "data is unvalied"], 400);
         }
 
         $file = File::where('id', $request->id)->first();
@@ -132,11 +212,10 @@ class FileController extends Controller
         // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
 
         // if (!($file->user_id == $user->id))
-        // $v=5;
 
-            $file->status = false;
-            $file->booker = $user->id;
-            $file->saveOrFail();
+        $file->status = false;
+        $file->booker_id = $user->id;
+        $file->saveOrFail();
 
         $filePath =  $file->path;
 
@@ -145,13 +224,13 @@ class FileController extends Controller
             echo $filePath;
             return response()->json([
                 'message' => "file is not found"
-            ], 404);
+            ], 400);
         }
 
         // Set the headers for the response
         $headers = [
             'Content-Type' => Storage::mimeType('public/' .  $file->path),
-            'Content-Disposition' => 'attachment; filename="' .  $file->path . '"',
+            'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
         ];
 
         // Create and return the streamed response
@@ -168,6 +247,35 @@ class FileController extends Controller
     }
 
 
+    public function unBook(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'file_id' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()], 400);
+        }
+
+        $user =  Auth::guard('web')->user();
+        $file = File::find($request->file_id)->first();
+
+        if (!$user->id == $file->booker_id) {
+            return response()->json(['message' => "you can't do this action"], 400);
+        }
+        // return file_exists($file->copy_path); 
+        if (file_exists($file->copy_path)) {
+            $move = FFile::move($file->copy_path, $file->path);
+            echo $move;
+        }
+
+        $file->status = true;
+        $file->booker_id = null;
+        $file->copy_path = null;
+        $file->save();
+
+        return response()->json(['message' => "done"], 200);
+    }
 
     public function myFiles()
     {
@@ -197,7 +305,6 @@ class FileController extends Controller
         return $files;
     }
 
-    //add file to group
     public function addToGroup(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -228,25 +335,7 @@ class FileController extends Controller
             'deatails' => $file
         ], 200);
     }
-    public function unBook(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'file_id' => 'required',
-            'group_id' => 'required'
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json(['message' => "data is unvalied"], 400);
-        }
-        $user =  Auth::guard('web')->user();
-        $file = File::find($request->file_id)->first();
-
-        if (!$user->id == $file->user_id) {
-            return response()->json(['message' => "you can't do this action"], 400);
-        }
-
-    }
-    //delete file from group
     public function removeFromGroup($group_id, $file_id)
     {
         $user =  Auth::guard('web')->user();
@@ -269,8 +358,6 @@ class FileController extends Controller
             'message' => "deleting is done!"
         ], 200);
     }
-
-
 
     public function delete(Request $request)
     {
