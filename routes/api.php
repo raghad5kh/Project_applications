@@ -33,9 +33,6 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
-Route::post('/createGroup', [GroupController::class, 'store']);
-// Route::get('/showGroupFiles/{id}', [FileController::class,'showGroupFiles']);
-// Route::post('/addToGroup', [FileController::class,'addToGroup']);
 
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
