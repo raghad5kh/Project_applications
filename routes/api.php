@@ -42,12 +42,7 @@ Route::prefix('group')->group(function () {
     Route::get('/allGroups', [GroupController::class, 'allGroups']);
     Route::get('/usersGroup/{id}', [GroupController::class, 'usersGroup']);
     Route::get('/viewUserGroup/{name}', [GroupController::class, 'viewUserGroup']);
-
-
 });
-Route::post('/createGroup', [GroupController::class, 'store']);
-// Route::get('/showGroupFiles/{id}', [FileController::class,'showGroupFiles']);
-// Route::post('/addToGroup', [FileController::class,'addToGroup']);
 
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
@@ -60,8 +55,7 @@ Route::prefix('/file')->controller(FileController::class)
     });
 Route::prefix('/group/file')->controller(FileController::class)
     ->group(function () {
-        Route::post('/add', 'addToGroup');
-        
+        Route::post('/add', 'addToGroup');    
         Route::get('/{id}', 'showGroupFiles');
     });
 Route::delete('/group/{group_id}/file/{file_id}', [FileController::class, 'removeFromGroup']);

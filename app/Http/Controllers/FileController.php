@@ -23,7 +23,8 @@ class FileController extends Controller
         $this->middleware('auth:sanctum');
     }
 
-    public function read($id){
+    public function read($id)
+    {
         $file = File::where('id', $id)->first();
         $user =  Auth::guard('web')->user();
         if ($file->status == false) {
@@ -31,7 +32,7 @@ class FileController extends Controller
                 'message' => "the file is not available !"
             ], 400);
         }
-        
+
         // user is owner or in group that file is existed in it
 
         $filePath =  $file->path;
@@ -61,7 +62,7 @@ class FileController extends Controller
         //     $headers
         // );
         return response()->download($filePath, 'hi', $headers);
-    } 
+    }
 
     public function upload(Request $request)
     {
@@ -99,7 +100,7 @@ class FileController extends Controller
             'deatails' => $file
         ], 200);
     }
- 
+
     public function edit(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -188,7 +189,7 @@ class FileController extends Controller
         }
     }
 
-    //true -> file is available
+    // true -> file is available
     // false -> file not available
 
     public function book(Request $request)
@@ -277,6 +278,8 @@ class FileController extends Controller
         return response()->json(['message' => "done"], 200);
     }
 
+
+    //return the name of booker
     public function myFiles()
     {
         $user = User::find(Auth::id());
@@ -298,8 +301,8 @@ class FileController extends Controller
 
         //check if user is member on group
 
-        $files = Group_file::join('groups', 'group_files.fk_group_id', '=', 'groups.id')
-            ->join('files', 'group_files.fk_file_id', '=', 'files.id')
+        $files = Group_file::join('groups', 'group_files.group_id', '=', 'groups.id')
+            ->join('files', 'group_files.file_id', '=', 'files.id')
             ->get('files.*');;
 
         return $files;
@@ -315,6 +318,7 @@ class FileController extends Controller
         if ($validator->fails()) {
             return response()->json(['message' => "data is unvalied"], 400);
         }
+
         $user =  Auth::guard('web')->user();
         $group = Group::find($request->group_id)->first();
         $file = File::find($request->file_id)->first();
@@ -325,8 +329,8 @@ class FileController extends Controller
         }
 
         $group_file = new Group_file();
-        $group_file->fk_group_id = $request->group_id;
-        $group_file->fk_file_id = $request->file_id;
+        $group_file->group_id = $request->group_id;
+        $group_file->file_id = $request->file_id;
         // return $group_file;
         $group_file->save();
 
@@ -348,8 +352,8 @@ class FileController extends Controller
             return response()->json(['message' => "you can't remove the file because it is booked!"], 400);
         }
 
-        Group_file::where('fk_group_id', $group_id)
-            ->where('fk_file_id', $file_id)
+        Group_file::where('group_id', $group_id)
+            ->where('file_id', $file_id)
             ->delete();
 
         // $group_file->delete();
@@ -380,3 +384,6 @@ class FileController extends Controller
         ], 200);
     }
 }
+//الملفات الغير محجوزة بلكروب
+// حجز أكتر من ملف
+//
