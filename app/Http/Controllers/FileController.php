@@ -67,37 +67,43 @@ class FileController extends Controller
     public function upload(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required'
+            'files.*' => 'required|file'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        $input_file = $request->file('file');
 
+        // $input_file = $request->file('file');
         $user =  Auth::guard('web')->user();
-        foreach ($user->files as $file) {
-            if ($file->name == $input_file->getClientOriginalName()) {
-                return response()->json([
-                    'message' => "The name is recently used, please change the name."
-                ], 400);
+
+        if (!$request->hasfile('files')) {
+            return response()->json(['message' => $validator->errors()], 400);
+        }
+        foreach ($request->file('files') as $input_file) {
+            foreach ($user->files as $file) {
+                if ($file->name == $input_file->file()->getClientOriginalName()) {
+                    return response()->json([
+                        'message' => "The name is recently used, please change the name."
+                    ], 400);
+                }
             }
+            $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
+            $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
+
+            $file = new File();
+            $file->path = $file_path;
+            $file->name = $request->file('file')->getClientOriginalName();
+            $file->status = true;
+            $file->user_id = $request->user()->id;
+            $file->saveOrFail();
         }
 
-        $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
-        $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
-
-        $file = new File();
-        $file->path = $file_path;
-        $file->name = $request->file('file')->getClientOriginalName();
-        $file->status = true;
-        $file->user_id = $request->user()->id;
-        $file->saveOrFail();
-        return $file;
+        // return $file;
 
         return response()->json([
             'message' => "Uploading is done!",
-            'deatails' => $file
+            // 'deatails' => $file
         ], 200);
     }
 
@@ -105,7 +111,7 @@ class FileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'file_id' => 'required',
-            'file' => 'required'
+            'file' => 'required|file'
         ]);
 
         if ($validator->fails()) {
@@ -284,9 +290,13 @@ class FileController extends Controller
     {
         $user = User::find(Auth::id());
 
-        $files = $user->files;
+        // $files = $user->files;
+        $files=File::join('users','users.id','=','files.booker_id')
+            ->select('files.name as file_name','users.name as user_name','files.status')
+            ->get()
+        ;
         return response()->json([
-            'files' => $files
+            'data' => $files
         ], 200);
     }
 
@@ -311,6 +321,3 @@ class FileController extends Controller
         ], 200);
     }
 }
-//الملفات الغير محجوزة بلكروب
-// حجز أكتر من ملف
-//

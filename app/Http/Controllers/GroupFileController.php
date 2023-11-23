@@ -19,25 +19,25 @@ class GroupFileController extends Controller
         $this->middleware('auth:sanctum');
     }
 
-    public function showGroupFilesToAdding(Request $request, $group_id)
+    public function showGroupFilesToAdding($group_id)
     {
-        // $validator =Validator::make($request->all,[
-        //     'gro'
-        // ]);
-        $group = Group::find($group_id)->first();
+        // $group = Group::find($group_id)->first();
         $user =  Auth::guard('web')->user();
 
-        $files = File::leftJoin('group_files', 'group_files.file_id', '=', 'files.id')
-        ->whereNull('group_files.file_id')
-        ->where('files.user_id', '=', $user->id)
-        ->get('files.*')
-        ;
-
-
-        return $files;
+        $files = File::leftJoin('group_files', 'files.id', '=', 'group_files.file_id')
+            ->leftJoin('groups', 'group_files.group_id', '=', 'groups.id')
+            ->where('files.user_id', '=', $user->id)
+            ->whereNull('groups.id')
+            ->orWhere('groups.id', '<>', $group_id)
+            ->select('files.id', 'files.name')
+            // ->where('groups.id','!=',$group_id)
+            ->get();
+        return response()->json([
+            'data' => $files
+        ], 200);
     }
 
-    
+
     public function addToGroup(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -69,41 +69,49 @@ class GroupFileController extends Controller
         ], 200);
     }
 
-    //show group files
-    public function showGroupFiles($id)
+    // show group files
+    public function showGroupFiles($group_id)
     {
         $user =  Auth::guard('web')->user();
-        $group = Group::find($id)->first();
+        $group = Group::find($group_id)->first();
         if (!$group) {
             return response()->json(['message' => "not found"], 400);
         }
 
         //check if user is member on group
 
-        $files = Group_file::join('groups', 'group_files.group_id', '=', 'groups.id')
-            ->join('files', 'group_files.file_id', '=', 'files.id')
+        $files = Group_file::join('files', 'group_files.file_id', '=', 'files.id')
+            ->join('users', 'users.id', '=', 'files.booker_id')
+            ->select('files.*', 'users.name as user_name')
+            ->where('group_files.group_id', '=', $group_id)
             ->get('files.*');;
 
-        return $files;
+
+        return response()->json([
+            'data' => $files
+        ], 200);
     }
 
-        //show group files
-        // public function showGroupFiles($id)
-        // {
-        //     $user =  Auth::guard('web')->user();
-        //     $group = Group::find($id)->first();
-        //     if (!$group) {
-        //         return response()->json(['message' => "not found"], 400);
-        //     }
-    
-        //     //check if user is member on group
-    
-        //     $files = Group_file::join('groups', 'group_files.group_id', '=', 'groups.id')
-        //         ->join('files', 'group_files.file_id', '=', 'files.id')
-        //         ->get('files.*');;
-    
-        //     return $files;
-        // }
+    public function showunBookedFiles($group_id)
+    {
+        $user =  Auth::guard('web')->user();
+        $group = Group::find($group_id)->first();
+        if (!$group) {
+            return response()->json(['message' => "not found"], 400);
+        }
+
+        //check if user is member on group
+
+        $files = Group_file::join('files', 'group_files.file_id', '=', 'files.id')
+            ->where('files.status', '=', '1')
+            ->where('group_files.group_id', '=', $group_id)
+            ->get('files.*');
+
+        return response()->json([
+            'message' => "done!",
+            'data' => $files
+        ], 200);
+    }
 
     public function removeFromGroup($group_id, $file_id)
     {

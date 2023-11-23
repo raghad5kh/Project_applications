@@ -61,6 +61,7 @@ Route::prefix('group')->controller(GroupFileController::class)
         Route::post('/file/add', 'addToGroup');    
         Route::get('{group_id}/file/showAll', 'showGroupFiles');
         Route::get('/{group_id}/file/showToAdd', 'showGroupFilesToAdding');    
+        Route::get('/{group_id}/file/showUnBooked', 'showunBookedFiles');    
         Route::delete('/{group_id}/file/{file_id}', 'removeFromGroup');    
     });
 
