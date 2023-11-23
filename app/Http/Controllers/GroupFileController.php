@@ -8,6 +8,7 @@ use App\Models\Group_file;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+
 use Illuminate\Support\Facades\Validator;
 
 class GroupFileController extends Controller
@@ -36,6 +37,21 @@ class GroupFileController extends Controller
         return $files;
     }
 
+    public function showGroupFilesToAdding(Request $request,$group_id){
+        // $validator =Validator::make($request->all,[
+        //     'gro'
+        // ]);
+        $group=Group::find($group_id)->first();
+        $user =  Auth::guard('web')->user();
+
+        $user_files=$user->files;
+            
+        $files=File::join('');
+
+        return $user_files;
+
+    }
+    
     public function addToGroup(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -84,6 +100,24 @@ class GroupFileController extends Controller
 
         return $files;
     }
+
+        //show group files
+        public function showGroupFiles($id)
+        {
+            $user =  Auth::guard('web')->user();
+            $group = Group::find($id)->first();
+            if (!$group) {
+                return response()->json(['message' => "not found"], 400);
+            }
+    
+            //check if user is member on group
+    
+            $files = Group_file::join('groups', 'group_files.group_id', '=', 'groups.id')
+                ->join('files', 'group_files.file_id', '=', 'files.id')
+                ->get('files.*');;
+    
+            return $files;
+        }
 
     public function removeFromGroup($group_id, $file_id)
     {
