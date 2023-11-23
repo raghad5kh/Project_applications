@@ -10,14 +10,15 @@ class Group_member extends Model
     use HasFactory;
 
     protected $fillable = [
-        'fk_users_id',
-        'fk_group_id',
+        'user_id',
+        'group_id',
     ];
     public function user(){
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class,'user_id');
     }
-    public function group(){
-        return $this->belongsTo(Group::class);
+    public function group()
+    {
+        return $this->belongsTo(Group::class, 'group_id', 'id');
     }
 
 }

@@ -10,15 +10,17 @@ class Group_file extends Model
     use HasFactory;
 
     protected $fillable = [
-        'fk_file_id',
-        'fk_group_id',
+        'file_id',
+        'group_id',
     ];
     public function file(){
         return $this->belongsTo(File::class);
     }
-    public function group(){
-        return $this->belongsTo(Group::class);
+    public function group()
+    {
+        return $this->belongsTo(Group::class, 'group_id');
     }
+
 
 
 }
