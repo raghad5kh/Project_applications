@@ -55,11 +55,11 @@ Route::prefix('/file')->controller(FileController::class)
         Route::post('/unBook', 'unBook');
         Route::get('/myFiles', 'myFiles');
     });
-Route::prefix('/group/file')->controller(FileController::class)
+Route::prefix('/group')->controller(FileController::class)
     ->group(function () {
         Route::post('/add', 'addToGroup');
-        
-        Route::get('/{id}', 'showGroupFiles');
+        Route::get('/{group_id}', 'showGroupFiles');
+
     });
 Route::delete('/group/{group_id}/file/{file_id}', [FileController::class, 'removeFromGroup']);
 
