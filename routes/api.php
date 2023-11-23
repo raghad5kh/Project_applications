@@ -55,6 +55,7 @@ Route::prefix('/file')->controller(FileController::class)
         Route::get('/myFiles', 'myFiles');
         //delete file
     });
+
 Route::prefix('group')->controller(GroupFileController::class)
     ->group(function () {
         Route::post('/file/add', 'addToGroup');    
