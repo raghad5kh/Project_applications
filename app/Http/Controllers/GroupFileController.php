@@ -37,20 +37,6 @@ class GroupFileController extends Controller
         return $files;
     }
 
-    public function showGroupFilesToAdding(Request $request,$group_id){
-        // $validator =Validator::make($request->all,[
-        //     'gro'
-        // ]);
-        $group=Group::find($group_id)->first();
-        $user =  Auth::guard('web')->user();
-
-        $user_files=$user->files;
-            
-        $files=File::join('');
-
-        return $user_files;
-
-    }
     
     public function addToGroup(Request $request)
     {
@@ -102,22 +88,22 @@ class GroupFileController extends Controller
     }
 
         //show group files
-        public function showGroupFiles($id)
-        {
-            $user =  Auth::guard('web')->user();
-            $group = Group::find($id)->first();
-            if (!$group) {
-                return response()->json(['message' => "not found"], 400);
-            }
+        // public function showGroupFiles($id)
+        // {
+        //     $user =  Auth::guard('web')->user();
+        //     $group = Group::find($id)->first();
+        //     if (!$group) {
+        //         return response()->json(['message' => "not found"], 400);
+        //     }
     
-            //check if user is member on group
+        //     //check if user is member on group
     
-            $files = Group_file::join('groups', 'group_files.group_id', '=', 'groups.id')
-                ->join('files', 'group_files.file_id', '=', 'files.id')
-                ->get('files.*');;
+        //     $files = Group_file::join('groups', 'group_files.group_id', '=', 'groups.id')
+        //         ->join('files', 'group_files.file_id', '=', 'files.id')
+        //         ->get('files.*');;
     
-            return $files;
-        }
+        //     return $files;
+        // }
 
     public function removeFromGroup($group_id, $file_id)
     {
