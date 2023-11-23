@@ -45,9 +45,6 @@ Route::prefix('group')->group(function () {
 
 
 });
-Route::post('/createGroup', [GroupController::class, 'store']);
-// Route::get('/showGroupFiles/{id}', [FileController::class,'showGroupFiles']);
-// Route::post('/addToGroup', [FileController::class,'addToGroup']);
 
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
