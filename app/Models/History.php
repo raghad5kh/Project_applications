@@ -9,8 +9,8 @@ class History extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'fk_user_id',
-        'fk_file_id',
+        'user_id',
+        'file_id',
         'type',
         'Upload_date',
         'reservation_date',
@@ -24,3 +24,4 @@ class History extends Model
         return $this->belongsTo(File::class);
     }
 }
+
