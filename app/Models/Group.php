@@ -10,7 +10,7 @@ class Group extends Model
     use HasFactory;
     protected $fillable = [
         'name',
-        'fk_admin_id',
+        'admin_id',
     ];
 
     public function admin(){
@@ -22,6 +22,23 @@ class Group extends Model
     }
 
     public function group_member(){
-        return $this ->hasMany(Group_member::class);
+        return $this->hasMany(Group_member::class, 'group_id', 'id');
     }
+
+    public function files()
+    {
+        return $this->belongsToMany(File::class, 'group_files') // Specify the correct pivot table name
+        ->withPivot('status'); // Include additional pivot columns
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($group) {
+            $group->group_member()->delete();
+        });
+    }
+
+
 }

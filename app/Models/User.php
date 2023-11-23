@@ -43,8 +43,9 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
-    public function group(){
-        return $this ->hasMany(Group::class);
+    public function group()
+    {
+        return $this->hasMany(Group::class, 'user_id', 'id');
     }
     public function files(){
         return $this ->hasMany(File::class);
