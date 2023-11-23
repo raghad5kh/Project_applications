@@ -15,13 +15,13 @@ return new class extends Migration
     {
         Schema::create('histories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('fk_user_id')->constrained('users');
-            $table->foreignId('fk_file_id')->constrained('files');
-            $table->string('type');
-            $table->date('Upload_date');
-            $table->date('reservation_date');
-            $table->date('Edit_date');
-            $table->date('cancellation of reservation_date');
+            $table->foreignId('user_id')->constrained('users');
+            $table->foreignId('file_id')->constrained('files');
+            $table->string('event');
+            // $table->date('Upload_date');
+            // $table->date('reservation_date');
+            // $table->date('Edit_date');
+            // $table->date('cancellation of reservation_date');
             $table->timestamps();
         });
     }
