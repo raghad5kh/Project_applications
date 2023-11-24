@@ -288,9 +288,11 @@ class FileController extends Controller
     //return the name of booker
     public function myFiles()
     {
-        $user = User::find(Auth::id());
+        $user =  Auth::guard('web')->user();
+        if(!$user){
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        // $files = $user->files;
         $files=File::join('users','users.id','=','files.booker_id')
             ->select('files.name as file_name','users.name as user_name','files.status')
             ->get()
