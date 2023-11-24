@@ -23,7 +23,8 @@ class FileController extends Controller
         $this->middleware('auth:sanctum');
     }
 
-    public function read($id){
+    public function read($id)
+    {
         $file = File::where('id', $id)->first();
         $user =  Auth::guard('web')->user();
         if ($file->status == false) {
@@ -31,7 +32,7 @@ class FileController extends Controller
                 'message' => "the file is not available !"
             ], 400);
         }
-        
+
         // user is owner or in group that file is existed in it
 
         $filePath =  $file->path;
@@ -61,50 +62,56 @@ class FileController extends Controller
         //     $headers
         // );
         return response()->download($filePath, 'hi', $headers);
-    } 
+    }
 
     public function upload(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required'
+            'files.*' => 'required|file'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        $input_file = $request->file('file');
 
+        // $input_file = $request->file('file');
         $user =  Auth::guard('web')->user();
-        foreach ($user->files as $file) {
-            if ($file->name == $input_file->getClientOriginalName()) {
-                return response()->json([
-                    'message' => "The name is recently used, please change the name."
-                ], 400);
+
+        if (!$request->hasfile('files')) {
+            return response()->json(['message' => $validator->errors()], 400);
+        }
+        foreach ($request->file('files') as $input_file) {
+            foreach ($user->files as $file) {
+                if ($file->name == $input_file->file()->getClientOriginalName()) {
+                    return response()->json([
+                        'message' => "The name is recently used, please change the name."
+                    ], 400);
+                }
             }
+            $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
+            $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
+
+            $file = new File();
+            $file->path = $file_path;
+            $file->name = $request->file('file')->getClientOriginalName();
+            $file->status = true;
+            $file->user_id = $request->user()->id;
+            $file->saveOrFail();
         }
 
-        $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
-        $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
-
-        $file = new File();
-        $file->path = $file_path;
-        $file->name = $request->file('file')->getClientOriginalName();
-        $file->status = true;
-        $file->user_id = $request->user()->id;
-        $file->saveOrFail();
-        return $file;
+        // return $file;
 
         return response()->json([
             'message' => "Uploading is done!",
-            'deatails' => $file
+            // 'deatails' => $file
         ], 200);
     }
- 
+
     public function edit(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'file_id' => 'required',
-            'file' => 'required'
+            'file' => 'required|file'
         ]);
 
         if ($validator->fails()) {
@@ -188,7 +195,7 @@ class FileController extends Controller
         }
     }
 
-    //true -> file is available
+    // true -> file is available
     // false -> file not available
 
     public function book(Request $request)
@@ -277,85 +284,21 @@ class FileController extends Controller
         return response()->json(['message' => "done"], 200);
     }
 
+
+    //return the name of booker
     public function myFiles()
     {
-        $user = User::find(Auth::id());
+        $user =  Auth::guard('web')->user();
+        if(!$user){
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        $files = $user->files;
+        $files=File::join('users','users.id','=','files.booker_id')
+            ->select('files.name as file_name','users.name as user_name','files.status')
+            ->get()
+        ;
         return response()->json([
-            'files' => $files
-        ], 200);
-    }
-
-    //show group files
-    public function showGroupFiles($id)
-    {
-        $user =  Auth::guard('web')->user();
-        $group = Group::find($id)->first();
-        if (!$group) {
-            return response()->json(['message' => "not found"], 400);
-        }
-
-        //check if user is member on group
-
-        $files = Group_file::join('groups', 'group_files.fk_group_id', '=', 'groups.id')
-            ->join('files', 'group_files.fk_file_id', '=', 'files.id')
-            ->get('files.*');;
-
-        return $files;
-    }
-
-    public function addToGroup(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'file_id' => 'required',
-            'group_id' => 'required'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['message' => "data is unvalied"], 400);
-        }
-        $user =  Auth::guard('web')->user();
-        $group = Group::find($request->group_id)->first();
-        $file = File::find($request->file_id)->first();
-
-
-        if (!($user->id == $file->user_id)) {
-            return response()->json(['message' => "you can't add this file"], 400);
-        }
-
-        $group_file = new Group_file();
-        $group_file->fk_group_id = $request->group_id;
-        $group_file->fk_file_id = $request->file_id;
-        // return $group_file;
-        $group_file->save();
-
-        return  response()->json([
-            'message' => "your file is added!",
-            'deatails' => $file
-        ], 200);
-    }
-
-    public function removeFromGroup($group_id, $file_id)
-    {
-        $user =  Auth::guard('web')->user();
-        $group = Group::find($group_id)->first();
-        $file = File::find($file_id)->first();
-
-        if (!($user->id == $file->user_id)) {
-            return response()->json(['message' => "you can't remove this file"], 400);
-        } else if ($file->status == false) {
-            return response()->json(['message' => "you can't remove the file because it is booked!"], 400);
-        }
-
-        Group_file::where('fk_group_id', $group_id)
-            ->where('fk_file_id', $file_id)
-            ->delete();
-
-        // $group_file->delete();
-
-        return response()->json([
-            'message' => "deleting is done!"
+            'data' => $files
         ], 200);
     }
 
