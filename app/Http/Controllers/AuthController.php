@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\ValidationException;
 
 
 class AuthController extends Controller
@@ -26,44 +26,50 @@ class AuthController extends Controller
             'username' => $data['username']
         ]);
 
-        Auth::login($user);
+        $authToken = $user->createToken('auth-token')->plainTextToken;
 
-        return response()->json(['message' => 'Registration successful', 'user' => $user]);
+
+        return response()->json([
+            'message' => 'Registration successful',
+            'user' => $user,
+            "Token" => $authToken]);
     }
+
 
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'login' => 'required|string',
+            'email' => 'required|exists:users,email',
             'password' => 'required',
         ]);
 
-        // Determine if the login input is an email or a username
-        $field = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-
-        // Add the determined field to the credentials array
-        $credentials[$field] = $credentials['login'];
-        unset($credentials['login']);
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-
-            return response()->json(['message' => 'Login successful']);
+        // Use 'email' and 'password' keys in the Auth::attempt method
+        if (!Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
+            ]);
         }
 
-        return response()->json(['message' => 'Invalid credentials'], 401);
+        // Get the authenticated user
+        $user = Auth::user();
+
+        // Create a personal access token for the user
+        $authToken = $user->createToken('auth-token')->plainTextToken;
+
+        return response()->json(['message' => 'Login successful', 'Token' => $authToken]);
     }
+
 
     public function logout(Request $request)
     {
-        $user = Auth::guard('web')->user(); // Get the currently authenticated user
+        // Revoke the current access token
+        $deleted = $request->user()->tokens()->delete();
 
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return response()->json([
-            'message' => 'Logout successful',
-            'user_logged_out' => $user ? $user->name : 'Unknown',
-        ]);
+        if ($deleted) {
+            return response()->json(['message' => 'Token revoked successfully']);
+        } else {
+            return response()->json(['message' => 'Failed to revoke token'], 500);
+        }
     }
+
 }
