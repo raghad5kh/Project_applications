@@ -53,6 +53,7 @@ Route::prefix('group')->group(function () {
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
         Route::post('/upload', 'upload');
+        Route::get('/read/{file_id}', 'read');
         Route::post('/edit', 'edit');
         Route::post('/rename', 'rename');
         Route::post('/book', 'book');
@@ -65,9 +66,7 @@ Route::prefix('group')->controller(GroupFileController::class)
     ->group(function () {
 
         Route::post('/add', 'addToGroup');
-
         Route::get('/{id}', 'showGroupFiles');
-
         Route::post('/file/add', 'addToGroup');    
         Route::get('{group_id}/file/showAll', 'showGroupFiles');
         Route::get('/{group_id}/file/showToAdd', 'showGroupFilesToAdding');    

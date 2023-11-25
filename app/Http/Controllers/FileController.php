@@ -67,37 +67,36 @@ class FileController extends Controller
     public function upload(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'files.*' => 'required|file'
+            'file' => 'required|file'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
 
-        // $input_file = $request->file('file');
+        $input_file = $request->file('file');
         $user =  Auth::guard('web')->user();
 
-        if (!$request->hasfile('files')) {
+        if (!$request->hasfile('file')) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        foreach ($request->file('files') as $input_file) {
-            foreach ($user->files as $file) {
-                if ($file->name == $input_file->file()->getClientOriginalName()) {
-                    return response()->json([
-                        'message' => "The name is recently used, please change the name."
-                    ], 400);
-                }
+        foreach ($user->files as $file) {
+            if ($file->name == $input_file->getClientOriginalName()) {
+                return response()->json([
+                    'message' => "The name is recently used, please change the name."
+                ], 400);
             }
-            $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
-            $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
-
-            $file = new File();
-            $file->path = $file_path;
-            $file->name = $request->file('file')->getClientOriginalName();
-            $file->status = true;
-            $file->user_id = $request->user()->id;
-            $file->saveOrFail();
         }
+        // return "hi";
+        $file_path =  "storage/app/public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
+        $input_file->move('storage/app/public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
+
+        $file = new File();
+        $file->path = $file_path;
+        $file->name = $request->file('file')->getClientOriginalName();
+        $file->status = true;
+        $file->user_id = $request->user()->id;
+        $file->saveOrFail();
 
         // return $file;
 
@@ -130,8 +129,8 @@ class FileController extends Controller
             return response()->json(['message' => "the name and extension must be similar to the orginal file !"], 400);
         }
 
-        $file_path =  "public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
-        $input_file->move('public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
+        $file_path =  "storage/app/public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
+        $input_file->move('storage/app/public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
         $file->copy_path = $file_path;
         $file->save();
 
@@ -179,7 +178,7 @@ class FileController extends Controller
         $fileInfo = pathinfo($oldFilePath);
         $extension = $fileInfo['extension'];
         // New file path
-        $newFilePath = "public/files/_" . $request->user()->id . "/" . $request->name . "." . $extension;
+        $newFilePath = "storage/app/public/files/_" . $request->user()->id . "/" . $request->name . "." . $extension;
         try {
             // Rename the file
             FFile::move($oldFilePath, $newFilePath);
@@ -197,6 +196,7 @@ class FileController extends Controller
 
     // true -> file is available
     // false -> file not available
+
 
     public function book(Request $request)
     {
@@ -220,19 +220,19 @@ class FileController extends Controller
 
         // if (!($file->user_id == $user->id))
 
-        $file->status = false;
-        $file->booker_id = $user->id;
-        $file->saveOrFail();
 
-        $filePath =  $file->path;
 
         // Check if the file exists
+        $filePath =  $file->path;
         if (!file_exists($filePath)) {
             echo $filePath;
             return response()->json([
                 'message' => "file is not found"
             ], 400);
         }
+        $file->status = false;
+        $file->booker_id = $user->id;
+        $file->saveOrFail();
 
         // Set the headers for the response
         $headers = [
@@ -289,14 +289,13 @@ class FileController extends Controller
     public function myFiles()
     {
         $user =  Auth::guard('web')->user();
-        if(!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $files=File::join('users','users.id','=','files.booker_id')
-            ->select('files.name as file_name','users.name as user_name','files.status')
-            ->get()
-        ;
+        $files = File::join('users', 'users.id', '=', 'files.user_id')
+            ->select('files.name as file_name', 'users.name as user_name', 'files.status')
+            ->get();
         return response()->json([
             'data' => $files
         ], 200);

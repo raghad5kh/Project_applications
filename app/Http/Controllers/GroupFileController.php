@@ -22,14 +22,16 @@ class GroupFileController extends Controller
 
     public function showGroupFilesToAdding($group_id)
     {
-        $group = Group::find($group_id)->first();
+        // $group = Group::find($group_id)->first();
         $user =  Auth::guard('web')->user();
 
         // if user in group or not
         $group_member = Group_member::where('group_members.group_id', '=', $group_id)
-            ->where('group_members.user_id', '=', $user->id);
+            ->where('group_members.user_id', '=', $user->id)
+            ->exists();
+
         if (!$group_member) {
-            return response()->json(['message' => 'you are not a member in this group']);
+            return response()->json(['message' => 'you are not a member in this group'], 400);
         }
 
         $files = File::leftJoin('group_files', 'files.id', '=', 'group_files.file_id')
@@ -60,13 +62,19 @@ class GroupFileController extends Controller
         $user =  Auth::guard('web')->user();
         $file = File::find($request->file_id)->first();
 
+        // if user in group or not
+        $group_member = Group_member::where('group_members.group_id', '=', $request->group_id)
+            ->where('group_members.user_id', '=', $user->id)
+            ->exists();
 
-        if (!($user->id == $file->user_id)) {
-            return response()->json(['message' => "you can't add this file"], 400);
+        if (!$group_member) {
+            return response()->json(['message' => 'you are not a member in this group'], 400);
         }
-        $group_file = Group_file::where('group_files.file_id', '=', $request->group_id)
-            ->where('grpup_files.group_id', '=', $request->file_id)
-            ->get();
+
+
+        $group_file = Group_file::where('group_files.file_id', '=', $request->file_id)
+            ->where('group_files.group_id', '=', $request->group_id)
+            ->exists();
         if ($group_file) {
             return response()->json(['message' => "the file is already exist in this group."], 400);
         }
@@ -86,7 +94,7 @@ class GroupFileController extends Controller
     public function showGroupFiles($group_id)
     {
         $user =  Auth::guard('web')->user();
-        $group = Group::find($group_id)->first();
+        $group = Group::find($group_id)->first()    ;
         if (!$group) {
             return response()->json(['message' => " the group is not exist"], 400);
         }
@@ -99,10 +107,10 @@ class GroupFileController extends Controller
         }
 
         $files = Group_file::join('files', 'group_files.file_id', '=', 'files.id')
-            ->join('users', 'users.id', '=', 'files.booker_id')
+            ->leftJoin('users', 'users.id', '=', 'files.booker_id')
             ->select('files.*', 'users.name as user_name')
             ->where('group_files.group_id', '=', $group_id)
-            ->get('files.*');;
+            ->get();
 
         return response()->json([
             'data' => $files
@@ -140,7 +148,7 @@ class GroupFileController extends Controller
         $user =  Auth::guard('web')->user();
         $group = Group::find($group_id)->first();
         $file = File::find($file_id)->first();
-        if(!$group){
+        if (!$group) {
             return response()->json(['message' => "group is not exist"], 400);
         } else if (!($user->id == $file->user_id)) {
             return response()->json(['message' => "you can't remove this file"], 400);
