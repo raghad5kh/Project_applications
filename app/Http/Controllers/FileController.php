@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_file;
+use App\Models\Group_member;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File as FFile;
@@ -32,8 +33,17 @@ class FileController extends Controller
                 'message' => "the file is not available !"
             ], 400);
         }
-
         // user is owner or in group that file is existed in it
+        $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
+            ->where('group_members_user_id', '=', $user->id)
+            ->where('group_files.file_id', '=', $id);
+        if ($user->id != $file->user_id) {
+            return response()->json([
+                'message' => "the file is not available !"
+            ], 400);
+        } else if (!$check) {
+            return response()->json(['message' => "this file isn't available"], 400);
+        }
 
         $filePath =  $file->path;
 
@@ -67,43 +77,39 @@ class FileController extends Controller
     public function upload(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'files.*' => 'required|file'
+            'file' => 'required|file'
         ]);
-
+        
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-
-        // $input_file = $request->file('file');
+        
+        $input_file = $request->file('file');
         $user =  Auth::guard('web')->user();
-
-        if (!$request->hasfile('files')) {
+        
+        if (!$request->hasfile('file')) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        foreach ($request->file('files') as $input_file) {
-            foreach ($user->files as $file) {
-                if ($file->name == $input_file->file()->getClientOriginalName()) {
-                    return response()->json([
-                        'message' => "The name is recently used, please change the name."
-                    ], 400);
-                }
+        foreach ($user->files as $file) {
+            if ($file->name == $input_file->getClientOriginalName()) {
+                return response()->json([
+                    'message' => "The name is recently used, please change the name."
+                ], 400);
             }
-            $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
-            $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
-
-            $file = new File();
-            $file->path = $file_path;
-            $file->name = $request->file('file')->getClientOriginalName();
-            $file->status = true;
-            $file->user_id = $request->user()->id;
-            $file->saveOrFail();
         }
+        // return "ht";
+        $file_path =  "files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
+        $input_file->move('files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
 
-        // return $file;
+        $file = new File();
+        $file->path = $file_path;
+        $file->name = $request->file('file')->getClientOriginalName();
+        $file->status = true;
+        $file->user_id = $request->user()->id;
+        $file->saveOrFail();
 
         return response()->json([
             'message' => "Uploading is done!",
-            // 'deatails' => $file
         ], 200);
     }
 
@@ -117,9 +123,16 @@ class FileController extends Controller
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-
         $file = File::where('id', $request->file_id)->first();
         $user =  Auth::guard('web')->user();
+
+        $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
+            ->where('group_members_user_id', '=', $user->id)
+            ->where('group_files.file_id', '=', $request->file_id);
+        if (!$check) {
+            return response()->json(['message' => "this file isn't available"], 400);
+        }
+
 
         if ($file->status != false || $user->id != $file->booker_id) {
             return response()->json(['message' => "forbidden !"], 400);
@@ -130,8 +143,8 @@ class FileController extends Controller
             return response()->json(['message' => "the name and extension must be similar to the orginal file !"], 400);
         }
 
-        $file_path =  "public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
-        $input_file->move('public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
+        $file_path =  "files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
+        $input_file->move('files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
         $file->copy_path = $file_path;
         $file->save();
 
@@ -218,7 +231,8 @@ class FileController extends Controller
 
         // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
 
-        // if (!($file->user_id == $user->id))
+        // if (!($file->user_id == $user->id)) 
+        
 
         $file->status = false;
         $file->booker_id = $user->id;
@@ -284,19 +298,18 @@ class FileController extends Controller
         return response()->json(['message' => "done"], 200);
     }
 
-
     //return the name of booker
     public function myFiles()
     {
         $user =  Auth::guard('web')->user();
-        if(!$user){
+        if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $files=File::join('users','users.id','=','files.booker_id')
-            ->select('files.name as file_name','users.name as user_name','files.status')
-            ->get()
-        ;
+        $files = File::join('users', 'users.id', '=', 'files.user_id')
+            ->select('files.id','files.name as file_name', 'users.name as user_name', 'files.status')
+            ->where('users.id','=',$user->id)
+            ->get();
         return response()->json([
             'data' => $files
         ], 200);

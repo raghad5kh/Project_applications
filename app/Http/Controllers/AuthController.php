@@ -25,9 +25,6 @@ class AuthController extends Controller
             'password' => bcrypt($data['password']),
             'username' => $data['username']
         ]);
-
-        Auth::login($user);
-
         return response()->json(['message' => 'Registration successful', 'user' => $user]);
     }
 
