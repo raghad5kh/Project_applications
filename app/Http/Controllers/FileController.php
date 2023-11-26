@@ -61,7 +61,7 @@ class FileController extends Controller
         //     200,
         //     $headers
         // );
-        return response()->download($filePath, 'hi', $headers);
+        return response()->download($filePath, $file->name, $headers);
     }
 
     public function upload(Request $request)
