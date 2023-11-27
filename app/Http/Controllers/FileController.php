@@ -97,8 +97,8 @@ class FileController extends Controller
                 ], 400);
             }
         }
-        $file_path =  "public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
-        $input_file->move('public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
+        $file_path =  "storage/app/public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
+        $input_file->move('storage/app/public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
 
         $file = new File();
         $file->path = $file_path;
@@ -142,8 +142,8 @@ class FileController extends Controller
             return response()->json(['message' => "the name and extension must be similar to the orginal file !"], 400);
         }
 
-        $file_path =  "public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
-        $input_file->move('public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
+        $file_path =  "storage/app/public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
+        $input_file->move('storage/app/public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
         $file->copy_path = $file_path;
         $file->save();
 
