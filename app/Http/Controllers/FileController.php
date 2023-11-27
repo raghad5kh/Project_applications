@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File as FFile;
 use App\Models\User;
+use Dotenv\Store\File\Paths;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Input\Input;
@@ -211,51 +212,118 @@ class FileController extends Controller
     // false -> file not available
 
 
+    // public function book(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'id' => 'required'
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json(['message' => "data is unvalied"], 400);
+    //     }
+
+    //     $file = File::where('id', $request->id)->first();
+    //     $user =  Auth::guard('web')->user();
+    //     if ($file->status == false) {
+    //         return response()->json([
+    //             'message' => "the file is not available !"
+    //         ], 400);
+    //     }
+
+    //     // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
+
+    //     $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
+    //         ->where('group_members.user_id', '=', $user->id)
+    //         ->where('group_files.file_id', '=', $request->id);
+    //     if ($user->id != $file->user_id) {
+    //         return response()->json([
+    //             'message' => "the file is not available !"
+    //         ], 400);
+    //     } else if (!$check) {
+    //         return response()->json(['message' => "this file isn't available"], 400);
+    //     }
+
+
+
+    //     // Check if the file exists
+    //     $filePath =  $file->path;
+    //     if (!file_exists($filePath)) {
+    //         echo $filePath;
+    //         return response()->json([
+    //             'message' => "file is not found"
+    //         ], 400);
+    //     }
+    //     $file->status = false;
+    //     $file->booker_id = $user->id;
+    //     $file->saveOrFail();
+
+    //     // Set the headers for the response
+    //     $headers = [
+    //         'Content-Type' => Storage::mimeType('public/' .  $file->path),
+    //         'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+    //     ];
+
+    //     // Create and return the streamed response
+    //     // return response()->stream(
+    //     //     function () use ($filePath) {
+    //     //         $stream = fopen($filePath, 'r');
+    //     //         fpassthru($stream);
+    //     //         fclose($stream);
+    //     //     },
+    //     //     200,
+    //     //     $headers
+    //     // );
+    //     return response()->download($filePath, 'hi', $headers);
+    // }
+
     public function book(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id' => 'required'
+            'files_id.*' => 'required'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => "data is unvalied"], 400);
         }
+        $paths = [];
+        foreach ($request->files_id as $id) {
 
-        $file = File::where('id', $request->id)->first();
-        $user =  Auth::guard('web')->user();
-        if ($file->status == false) {
-            return response()->json([
-                'message' => "the file is not available !"
-            ], 400);
+            $file = File::where('id', $id)->first();
+            $user =  Auth::guard('web')->user();
+            if ($file->status == false) {
+                return response()->json([
+                    'message' => "the file is not available !"
+                ], 400);
+            }
+
+            // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
+
+            $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
+                ->where('group_members.user_id', '=', $user->id)
+                ->where('group_files.file_id', '=', $id);
+            if ($user->id != $file->user_id) {
+                return response()->json([
+                    'message' => "the file is not available !"
+                ], 400);
+            } else if (!$check) {
+                return response()->json(['message' => "this file isn't available"], 400);
+            }
+
+
+
+            // Check if the file exists
+            $filePath =  $file->path;
+            if (!file_exists($filePath)) {
+                echo $filePath;
+                return response()->json([
+                    'message' => "file is not found"
+                ], 400);
+            }
+            $paths[] = $filePath;
+            $file->status = false;
+            $file->booker_id = $user->id;
+            $file->saveOrFail();
         }
-
-        // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
-
-        $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
-            ->where('group_members.user_id', '=', $user->id)
-            ->where('group_files.file_id', '=', $request->id);
-        if ($user->id != $file->user_id) {
-            return response()->json([
-                'message' => "the file is not available !"
-            ], 400);
-        } else if (!$check) {
-            return response()->json(['message' => "this file isn't available"], 400);
-        }
-
-
-
-        // Check if the file exists
-        $filePath =  $file->path;
-        if (!file_exists($filePath)) {
-            echo $filePath;
-            return response()->json([
-                'message' => "file is not found"
-            ], 400);
-        }
-        $file->status = false;
-        $file->booker_id = $user->id;
-        $file->saveOrFail();
-
         // Set the headers for the response
         $headers = [
             'Content-Type' => Storage::mimeType('public/' .  $file->path),
@@ -263,18 +331,19 @@ class FileController extends Controller
         ];
 
         // Create and return the streamed response
-        // return response()->stream(
-        //     function () use ($filePath) {
-        //         $stream = fopen($filePath, 'r');
-        //         fpassthru($stream);
-        //         fclose($stream);
-        //     },
-        //     200,
-        //     $headers
-        // );
-        return response()->download($filePath, 'hi', $headers);
+        return response()->stream(
+            function () use ($paths) {
+                foreach ($paths as $filePath) {
+                    $stream = fopen($filePath, 'r');
+                    fpassthru($stream);
+                    fclose($stream);
+                }
+            },
+            200,
+            $headers
+        );
+        // return response()->download($filePath, 'hi', $headers);
     }
-
 
     public function unBook(Request $request)
     {
@@ -314,7 +383,7 @@ class FileController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $files = File::join('users', 'users.id', '=', 'files.booker_id')
+        $files = File::join('users', 'users.id', '=', 'files.user_id')
             ->select('files.name as file_name', 'users.name as user_name', 'files.status')
             ->get();
         return response()->json([
@@ -322,7 +391,7 @@ class FileController extends Controller
         ], 200);
     }
 
-    public function delete(Request $request,$id)
+    public function delete(Request $request, $id)
     {
         $file = File::find($id)->first();
 
