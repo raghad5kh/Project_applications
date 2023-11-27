@@ -50,6 +50,9 @@ Route::prefix('group')->group(function () {
 
 });
 
+Route::get('test', [FileController::class, 'index']);
+
+
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
         Route::post('/upload', 'upload');
