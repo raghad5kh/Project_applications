@@ -337,7 +337,11 @@ class FileController extends Controller
             ], 400);
         }
 
-        $file->delete;
+        if (file_exists($file->path)) {
+            FFile::delete($file->path);
+        }
+        $file->delete();
+
         return response()->json([
             'message' => "deleting is done!"
         ], 200);
