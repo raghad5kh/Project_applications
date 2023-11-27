@@ -60,6 +60,7 @@ Route::prefix('/file')->controller(FileController::class)
         Route::post('/unBook', 'unBook');
         Route::get('/myFiles', 'myFiles');
         //delete file
+        Route::delete('/delete/{file_id}','delete');
     });
 
 Route::prefix('group')->controller(GroupFileController::class)
