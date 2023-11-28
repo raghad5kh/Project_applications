@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Aspects\GroupAspect;
 use App\Models\Group;
 use App\Models\Group_member;
 use App\Models\User;
@@ -9,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+#[GroupAspect]
 class GroupController extends Controller
 {
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Aspects\GroupFileAspect;
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_file;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Support\Facades\Validator;
 
+#[GroupFileAspect]
 class GroupFileController extends Controller
 {
 

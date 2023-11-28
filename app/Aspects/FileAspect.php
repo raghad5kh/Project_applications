@@ -28,8 +28,16 @@ class FileAspect implements Aspect
         DB::commit();
         $history=new History();
         $history->user_id=$request()->user()->id;
-
-        
+        //file id , group id
+        if($method=='edit'){
+            $history->event='Update';
+        }else if($method=='book'){
+            $history->event='Reserve';
+        }else if($method=='unBook'){
+            $history->event='Cancel Reserve';
+        }else if($method=='read'){
+            $history->event='Read';
+        }        
     }
 
     public function executeException($request, $controller, $method, $exception)
