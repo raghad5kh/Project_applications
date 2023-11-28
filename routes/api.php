@@ -39,12 +39,11 @@ Route::prefix('auth')->group(function () {
 Route::prefix('group')->group(function () {
     Route::post('/store', [GroupController::class, 'store']);
     Route::post('/groupMember', [GroupController::class, 'groupMember']);
-    Route::delete('/destroy/{id}', [GroupController::class, 'destroy']);
+    Route::post('/destroy/{id}', [GroupController::class, 'destroy']);
     Route::get('/allGroups', [GroupController::class, 'allGroups']);
     Route::get('/usersGroup/{id}', [GroupController::class, 'usersGroup']);
     Route::get('/viewUserGroup/{name}', [GroupController::class, 'viewUserGroup']);
-
-    Route::post('/deleteMember', [GroupController::class, 'deleteMember']);
+    Route::post('/deleteMember/{group_id}/{user_id}', [GroupController::class, 'deleteMember']);
 
 
 
@@ -68,11 +67,11 @@ Route::prefix('group')->controller(GroupFileController::class)
 
         Route::post('/add', 'addToGroup');
         Route::get('/{id}', 'showGroupFiles');
-        Route::post('/file/add', 'addToGroup');    
+        Route::post('/file/add', 'addToGroup');
         Route::get('{group_id}/file/showAll', 'showGroupFiles');
-        Route::get('/{group_id}/file/showToAdd', 'showGroupFilesToAdding');    
-        Route::get('/{group_id}/file/showUnBooked', 'showunBookedFiles');    
-        Route::delete('/{group_id}/file/{file_id}', 'removeFromGroup');    
+        Route::get('/{group_id}/file/showToAdd', 'showGroupFilesToAdding');
+        Route::get('/{group_id}/file/showUnBooked', 'showunBookedFiles');
+        Route::delete('/{group_id}/file/{file_id}', 'removeFromGroup');
 
     });
 
