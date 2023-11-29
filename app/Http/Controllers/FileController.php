@@ -2,66 +2,69 @@
 
 namespace App\Http\Controllers;
 
-use GuzzleHttp\Promise\Create;
+use App\Aspects\FileAspect;
 use Illuminate\Http\Request;
 use App\Models\File;
-use App\Models\Group;
 use App\Models\Group_file;
 use App\Models\Group_member;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File as FFile;
-use App\Models\User;
-use Dotenv\Store\File\Paths;
+use Carbon\Carbon;
+use DateTime;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Input\Input;
+use ZipArchive;
 
+#[FileAspect]
 class FileController extends Controller
 {
-
     public function __construct()
     {
         $this->middleware('auth:sanctum');
     }
-
-    public function read($id)
+    public function index(Request $request)
     {
-        $file = File::where('id', $id)->first();
-        $user =  Auth::guard('web')->user();
-        if ($file->status == false) {
+        $dt = new DateTime();
+        echo $dt->format('d-m-Y');
+    }
+    public function read($file_id, $group_id)
+    {
+        $file = File::where('id', $file_id)->first();
+        $user =  Auth::user();
+        if ($file->status == false && $user->id != $file->booker_id) {
             return response()->json([
                 'message' => "the file is not available !"
             ], 400);
         }
-        // user is owner or in group that file is existed in it
+        // check if file exist in this group
+        $exist=Group_file::where('group_id','=',$group_id)
+            ->where('file_id','=',$file_id)
+            ->exists();
+        if(!$exist){
+            return response()->json([
+                'message' => "the file is not exist in this group !"
+            ], 400);
+        }
+
+        // user in group that file is existed in it
         $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
             ->where('group_members.user_id', '=', $user->id)
-            ->where('group_files.file_id', '=', $id);
-        if ($user->id != $file->user_id) {
-            return response()->json([
-                'message' => "the file is not available !"
-            ], 400);
-        } else if (!$check) {
+            ->where('group_files.file_id', '=', $file_id);
+        if (!$check) {
             return response()->json(['message' => "this file isn't available"], 400);
         }
 
-        $filePath =  $file->path;
-
         // Check if the file exists
-        if (!file_exists($filePath)) {
-            echo $filePath;
+        if (!file_exists($file->path)) {
             return response()->json([
                 'message' => "file is not found"
             ], 400);
         }
 
         // Set the headers for the response
-        $headers = [
-            'Content-Type' => Storage::mimeType('public/' .  $file->path),
-            'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
-        ];
-
+        // $headers = [
+        //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
+        //     'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+        // ];
         // Create and return the streamed response
         // return response()->stream(
         //     function () use ($filePath) {
@@ -72,7 +75,17 @@ class FileController extends Controller
         //     200,
         //     $headers
         // );
-        return response()->download($filePath, $file->name, $headers);
+        // return response() ->download($filePath, $file->name, $headers);
+
+        $file_content = file_get_contents($file->path,true);
+
+        //store in history
+        (new HistoryController())->store($group_id, $file_id, $user->id, 'read');
+
+        return response()->json([
+            'message' => 'done',
+            'file_content' => $file_content
+        ]);
     }
 
     public function upload(Request $request)
@@ -86,11 +99,12 @@ class FileController extends Controller
         }
 
         $input_file = $request->file('file');
-        $user =  Auth::guard('web')->user();
+        $user =  $request->user();
 
         if (!$request->hasfile('file')) {
             return response()->json(['message' => $validator->errors()], 400);
         }
+
         foreach ($user->files as $file) {
             if ($file->name == $input_file->getClientOriginalName()) {
                 return response()->json([
@@ -98,15 +112,22 @@ class FileController extends Controller
                 ], 400);
             }
         }
-        $file_path =  "storage/app/public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName();
-        $input_file->move('storage/app/public/files/_' . $request->user()->id . "/", $input_file->getClientOriginalName());
 
+        $file_path = storage_path("app/public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName());
+        $input_file->move(storage_path('app/public/files/_' . $request->user()->id . "/"), $input_file->getClientOriginalName());
         $file = new File();
         $file->path = $file_path;
         $file->name = $request->file('file')->getClientOriginalName();
         $file->status = true;
         $file->user_id = $request->user()->id;
-        $file->saveOrFail();
+        $file->save();
+
+        // $file = new File();
+        // $file->path = $file_path;
+        // $file->name = $request->file('file')->getClientOriginalName();
+        // $file->status = "alaa";
+        // $file->user_id = $request->user()->id;
+        // $file->save();
 
         return response()->json([
             'message' => "Uploading is done!",
@@ -117,6 +138,7 @@ class FileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'file_id' => 'required',
+            'group_id' => 'required',
             'file' => 'required|file'
         ]);
 
@@ -124,7 +146,7 @@ class FileController extends Controller
             return response()->json(['message' => $validator->errors()], 400);
         }
         $file = File::where('id', $request->file_id)->first();
-        $user =  Auth::guard('web')->user();
+        $user = $request->user();
 
         $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
             ->where('group_members.user_id', '=', $user->id)
@@ -143,8 +165,8 @@ class FileController extends Controller
             return response()->json(['message' => "the name and extension must be similar to the orginal file !"], 400);
         }
 
-        $file_path =  "storage/app/public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName();
-        $input_file->move('storage/app/public/files/_' . $request->user()->id . "/temp/", $input_file->getClientOriginalName());
+        $file_path = storage_path("app/public/files/_" . $request->user()->id . "/temp/" . $input_file->getClientOriginalName());
+        $input_file->move(storage_path('app/public/files/_' . $request->user()->id . "/temp/"), $input_file->getClientOriginalName());
         $file->copy_path = $file_path;
         $file->save();
 
@@ -164,7 +186,7 @@ class FileController extends Controller
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        $user =  Auth::guard('web')->user();
+        $user = $request->user();
 
         $input_file = File::where('id', $request->id)->first();
 
@@ -192,19 +214,19 @@ class FileController extends Controller
         $fileInfo = pathinfo($oldFilePath);
         $extension = $fileInfo['extension'];
         // New file path
-        $newFilePath = "storage/app/public/files/_" . $request->user()->id . "/" . $request->name . "." . $extension;
+        $newFilePath = storage_path("app/public/files/_" . $request->user()->id . "/" . $request->name . "." . $extension);
         try {
             // Rename the file
             FFile::move($oldFilePath, $newFilePath);
             $input_file->path = $newFilePath;
             $input_file->name = $request->name;
             $input_file->saveOrFail();
-            return $input_file;
-            // Output success message or perform additional actions if needed
-            echo "File successfully renamed!";
+            return response()->json([
+                'message' => 'done',
+                'file' => $input_file
+            ], 200);
         } catch (\Exception $e) {
-            // Handle any exceptions that occurred during the renaming process
-            echo "Error: " . $e->getMessage();
+            return "Error: " . $e->getMessage();
         }
     }
 
@@ -279,42 +301,33 @@ class FileController extends Controller
     public function book(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'files_id.*' => 'required'
+            'files_id.*' => 'required',
+            'group_id' => 'required'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => "data is unvalied"], 400);
         }
         $paths = [];
-        foreach ($request->files_id as $id) {
 
+        foreach ($request->files_id as $id) {
             $file = File::where('id', $id)->first();
-            $user =  Auth::guard('web')->user();
+            $user =  $request->user();
             if ($file->status == false) {
                 return response()->json([
                     'message' => "the file is not available !"
                 ], 400);
             }
-
             // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
-
             $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
                 ->where('group_members.user_id', '=', $user->id)
                 ->where('group_files.file_id', '=', $id);
-            if ($user->id != $file->user_id) {
-                return response()->json([
-                    'message' => "the file is not available !"
-                ], 400);
-            } else if (!$check) {
+            if (!$check) {
                 return response()->json(['message' => "this file isn't available"], 400);
             }
-
-
-
             // Check if the file exists
             $filePath =  $file->path;
             if (!file_exists($filePath)) {
-                echo $filePath;
                 return response()->json([
                     'message' => "file is not found"
                 ], 400);
@@ -324,47 +337,71 @@ class FileController extends Controller
             $file->booker_id = $user->id;
             $file->saveOrFail();
         }
+
+        $zipFileName = 'downloaded_files_' . time() . '.zip';
+        $zipFilePath = storage_path("app/public/{$zipFileName}");
+        //copy files to temp folder 
+        foreach ($paths as $path) {
+            FFile::copy($path, storage_path("app/public/files/_" . $request->user()->id . "/temp/"));
+        }
+
+        // Create a new ZipArchive
+        $zip = new ZipArchive;
+        if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
+            foreach ($paths as $path) {
+                // Add each generated DOCX file to the ZIP archive
+                $docxFileName = basename($path);
+                $zip->addFile($path, $docxFileName);
+            }
+
+            $zip->close();
+        } else {
+            return response()->json(['error' => 'Failed to create ZIP archive'], 500);
+        }
+
         // Set the headers for the response
-        $headers = [
-            'Content-Type' => Storage::mimeType('public/' .  $file->path),
-            'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
-        ];
+        // $headers = [
+        //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
+        //     'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+        // ];
 
         // Create and return the streamed response
-        return response()->stream(
-            function () use ($paths) {
-                foreach ($paths as $filePath) {
-                    $stream = fopen($filePath, 'r');
-                    fpassthru($stream);
-                    fclose($stream);
-                }
-            },
-            200,
-            $headers
-        );
-        // return response()->download($filePath, 'hi', $headers);
+        // return response()->stream(
+        //     function () use ($paths) {
+        //         foreach ($paths as $filePath) {
+        //             $stream = fopen($filePath, 'r');
+        //             fpassthru($stream);
+        //             fclose($stream);
+        //         }
+        //     },
+        //     200,
+        //     $headers
+        // );
+        return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
+        // return response()->download($zipPath, 'files', $headers)->deleteFileAfterSend(true);
     }
 
     public function unBook(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'file_id' => 'required',
+            'group_id' => 'required'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
 
-        $user =  Auth::guard('web')->user();
-        $file = File::find($request->file_id)->first();
+        $user = $request->user();
+        $file = File::find($request->file_id);
 
+        // return $file;
         if (!$user->id == $file->booker_id) {
             return response()->json(['message' => "you can't do this action"], 400);
         }
         // return file_exists($file->copy_path); 
         if (file_exists($file->copy_path)) {
             $move = FFile::move($file->copy_path, $file->path);
-            echo $move;
         }
 
         $file->status = true;
@@ -378,13 +415,13 @@ class FileController extends Controller
     //return the name of booker
     public function myFiles()
     {
-        $user =  Auth::guard('web')->user();
+        $user =  Auth::user();
         if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 400);
         }
 
         $files = File::join('users', 'users.id', '=', 'files.user_id')
-            ->select('files.name as file_name', 'users.name as user_name', 'files.status')
+            ->select('files.id', 'files.name as file_name', 'users.name as user_name', 'files.status')
             ->get();
         return response()->json([
             'data' => $files

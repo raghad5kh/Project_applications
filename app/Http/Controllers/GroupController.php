@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Aspects\GroupAspect;
+
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_member;
@@ -11,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
+#[GroupAspect]
 class GroupController extends Controller
 {
     public function __construct()

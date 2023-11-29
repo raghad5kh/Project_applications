@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Aspects\GroupFileAspect;
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_file;
 use App\Models\Group_member;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Validator;
 
+#[GroupFileAspect]
 class GroupFileController extends Controller
 {
 
@@ -22,8 +23,7 @@ class GroupFileController extends Controller
 
     public function showGroupFilesToAdding($group_id)
     {
-        // $group = Group::find($group_id)->first();
-        $user =  Auth::guard('web')->user();
+        $user =  Auth::user();
 
         // if user in group or not
         $group_member = Group_member::where('group_members.group_id', '=', $group_id)
@@ -59,7 +59,7 @@ class GroupFileController extends Controller
             return response()->json(['message' => "data is unvalied"], 400);
         }
 
-        $user =  Auth::guard('web')->user();
+        $user =  Auth::user();
         $file = File::find($request->file_id)->first();
 
         // if user in group or not
@@ -93,7 +93,7 @@ class GroupFileController extends Controller
     // show group files
     public function showGroupFiles($group_id)
     {
-        $user =  Auth::guard('web')->user();
+        $user =  Auth::user();
         $group = Group::find($group_id)->first()    ;
         if (!$group) {
             return response()->json(['message' => " the group is not exist"], 400);
@@ -119,7 +119,7 @@ class GroupFileController extends Controller
 
     public function showunBookedFiles($group_id)
     {
-        $user =  Auth::guard('web')->user();
+        $user =  Auth::user();
         $group = Group::find($group_id)->first();
         if (!$group) {
             return response()->json(['message' => "not found"], 400);
@@ -145,7 +145,7 @@ class GroupFileController extends Controller
 
     public function removeFromGroup($group_id, $file_id)
     {
-        $user =  Auth::guard('web')->user();
+        $user =  Auth::user();
         $group = Group::find($group_id)->first();
         $file = File::find($file_id)->first();
         if (!$group) {
