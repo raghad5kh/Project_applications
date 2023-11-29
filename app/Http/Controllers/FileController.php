@@ -12,81 +12,22 @@ use Illuminate\Support\Facades\File as FFile;
 use Carbon\Carbon;
 use DateTime;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
-#[FileAspect]
+// #[FileAspect]
 class FileController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth:sanctum');
     }
-    public function index(Request $request)
-    {
-        $dt = new DateTime();
-        echo $dt->format('d-m-Y');
-    }
-    public function read($file_id, $group_id)
-    {
-        $file = File::where('id', $file_id)->first();
-        $user =  Auth::user();
-        if ($file->status == false && $user->id != $file->booker_id) {
-            return response()->json([
-                'message' => "the file is not available !"
-            ], 400);
-        }
-        // check if file exist in this group
-        $exist=Group_file::where('group_id','=',$group_id)
-            ->where('file_id','=',$file_id)
-            ->exists();
-        if(!$exist){
-            return response()->json([
-                'message' => "the file is not exist in this group !"
-            ], 400);
-        }
+    // public function index(Request $request)
+    // {
+    //     $dt = new DateTime();
+    //     echo $dt->format('d-m-Y');
+    // }
 
-        // user in group that file is existed in it
-        $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
-            ->where('group_members.user_id', '=', $user->id)
-            ->where('group_files.file_id', '=', $file_id);
-        if (!$check) {
-            return response()->json(['message' => "this file isn't available"], 400);
-        }
-
-        // Check if the file exists
-        if (!file_exists($file->path)) {
-            return response()->json([
-                'message' => "file is not found"
-            ], 400);
-        }
-
-        // Set the headers for the response
-        // $headers = [
-        //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
-        //     'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
-        // ];
-        // Create and return the streamed response
-        // return response()->stream(
-        //     function () use ($filePath) {
-        //         $stream = fopen($filePath, 'r');
-        //         fpassthru($stream);
-        //         fclose($stream);
-        //     },
-        //     200,
-        //     $headers
-        // );
-        // return response() ->download($filePath, $file->name, $headers);
-
-        $file_content = file_get_contents($file->path,true);
-
-        //store in history
-        (new HistoryController())->store($group_id, $file_id, $user->id, 'read');
-
-        return response()->json([
-            'message' => 'done',
-            'file_content' => $file_content
-        ]);
-    }
 
     public function upload(Request $request)
     {
@@ -245,7 +186,7 @@ class FileController extends Controller
     //     }
 
     //     $file = File::where('id', $request->id)->first();
-    //     $user =  Auth::guard('web')->user();
+    //     $user =  Auth::user();
     //     if ($file->status == false) {
     //         return response()->json([
     //             'message' => "the file is not available !"
@@ -264,8 +205,6 @@ class FileController extends Controller
     //     } else if (!$check) {
     //         return response()->json(['message' => "this file isn't available"], 400);
     //     }
-
-
 
     //     // Check if the file exists
     //     $filePath =  $file->path;
@@ -295,6 +234,7 @@ class FileController extends Controller
     //     //     200,
     //     //     $headers
     //     // );
+    //     // return 'hi';
     //     return response()->download($filePath, 'hi', $headers);
     // }
 
@@ -306,13 +246,13 @@ class FileController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => "data is unvalied"], 400);
-        }
+            return response()->json(['message' => $validator->errors()], 400);
+        }   
         $paths = [];
+        $user =  $request->user();
 
         foreach ($request->files_id as $id) {
             $file = File::where('id', $id)->first();
-            $user =  $request->user();
             if ($file->status == false) {
                 return response()->json([
                     'message' => "the file is not available !"
@@ -335,15 +275,14 @@ class FileController extends Controller
             $paths[] = $filePath;
             $file->status = false;
             $file->booker_id = $user->id;
-            $file->saveOrFail();
-        }
 
+            $file->saveOrFail();
+            //copy files to temp folder 
+            // FFile::copy($file->path, storage_path("app/public/files/_" . $request->user()->id . "/temp/" . $file->name));
+        }
         $zipFileName = 'downloaded_files_' . time() . '.zip';
         $zipFilePath = storage_path("app/public/{$zipFileName}");
-        //copy files to temp folder 
-        foreach ($paths as $path) {
-            FFile::copy($path, storage_path("app/public/files/_" . $request->user()->id . "/temp/"));
-        }
+
 
         // Create a new ZipArchive
         $zip = new ZipArchive;
@@ -356,29 +295,30 @@ class FileController extends Controller
 
             $zip->close();
         } else {
-            return response()->json(['error' => 'Failed to create ZIP archive'], 500);
+            return response()->json(['error' => 'Failed to create ZIP archive'], 400);
         }
 
         // Set the headers for the response
-        // $headers = [
-        //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
-        //     'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
-        // ];
+        $headers = [
+            'Content-Type' => Storage::mimeType('public/' .  $file->path),
+            'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+        ];
+        // return "hi";
 
         // Create and return the streamed response
         // return response()->stream(
-        //     function () use ($paths) {
-        //         foreach ($paths as $filePath) {
-        //             $stream = fopen($filePath, 'r');
-        //             fpassthru($stream);
-        //             fclose($stream);
-        //         }
+        //     function () use ($zipFilePath) {
+        //         // foreach ($paths as $filePath) {
+        //         $stream = fopen($zipFilePath, 'r');
+        //         fpassthru($stream);
+        //         fclose($stream);
         //     },
         //     200,
         //     $headers
         // );
-        return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
-        // return response()->download($zipPath, 'files', $headers)->deleteFileAfterSend(true);
+        return response()->download($zipFilePath, $zipFileName, $headers)->deleteFileAfterSend(true);
+        // return $zipFilePath;
+        // return response()->download($zipFilePath, 'files', $headers);
     }
 
     public function unBook(Request $request)
