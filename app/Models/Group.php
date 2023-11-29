@@ -37,6 +37,7 @@ class Group extends Model
 
         static::deleting(function ($group) {
             $group->group_member()->delete();
+            $group->group_file()->delete();
         });
     }
 
