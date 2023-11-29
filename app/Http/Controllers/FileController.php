@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Aspects\FileAspect;
 use Illuminate\Http\Request;
 use App\Models\File;
+use App\Models\Group_file;
 use App\Models\Group_member;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File as FFile;
 use Carbon\Carbon;
-use Exception;
+use DateTime;
 use Illuminate\Support\Facades\Auth;
 use ZipArchive;
 
@@ -23,44 +23,48 @@ class FileController extends Controller
     }
     public function index(Request $request)
     {
-        return 'hello from index method';
+        $dt = new DateTime();
+        echo $dt->format('d-m-Y');
     }
-    public function read(Request $request, $file_id,$group_id)
+    public function read($file_id, $group_id)
     {
         $file = File::where('id', $file_id)->first();
         $user =  Auth::user();
-        if ($file->status == false) {
+        if ($file->status == false && $user->id != $file->booker_id) {
             return response()->json([
                 'message' => "the file is not available !"
             ], 400);
         }
-        // user is owner or in group that file is existed in it
+        // check if file exist in this group
+        $exist=Group_file::where('group_id','=',$group_id)
+            ->where('file_id','=',$file_id)
+            ->exists();
+        if(!$exist){
+            return response()->json([
+                'message' => "the file is not exist in this group !"
+            ], 400);
+        }
+
+        // user in group that file is existed in it
         $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
             ->where('group_members.user_id', '=', $user->id)
             ->where('group_files.file_id', '=', $file_id);
-        if ($user->id != $file->user_id) {
-            return response()->json([
-                'message' => "the file is not available !"
-            ], 400);
-        } else if (!$check) {
+        if (!$check) {
             return response()->json(['message' => "this file isn't available"], 400);
         }
 
-        $filePath =  $file->path;
-
         // Check if the file exists
-        if (!file_exists($filePath)) {
+        if (!file_exists($file->path)) {
             return response()->json([
                 'message' => "file is not found"
             ], 400);
         }
 
         // Set the headers for the response
-        $headers = [
-            'Content-Type' => Storage::mimeType('public/' .  $file->path),
-            'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
-        ];
-
+        // $headers = [
+        //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
+        //     'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+        // ];
         // Create and return the streamed response
         // return response()->stream(
         //     function () use ($filePath) {
@@ -73,18 +77,14 @@ class FileController extends Controller
         // );
         // return response() ->download($filePath, $file->name, $headers);
 
-        // $filee = file_get_contents($file->path,true);
-        // $content = json_encode($filee);
+        $file_content = file_get_contents($file->path,true);
 
-        // return response()->json([
-        //     'message' => 'done',
-        //     'file_content' => $content
-        // ], 200);
+        //store in history
+        (new HistoryController())->store($group_id, $file_id, $user->id, 'read');
 
-        $fileContent = base64_encode($filePath);
         return response()->json([
             'message' => 'done',
-            'file_content' => $fileContent
+            'file_content' => $file_content
         ]);
     }
 
@@ -138,7 +138,7 @@ class FileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'file_id' => 'required',
-            'group_id'=>'required',
+            'group_id' => 'required',
             'file' => 'required|file'
         ]);
 
@@ -302,7 +302,7 @@ class FileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'files_id.*' => 'required',
-            'group_id'=>'required'
+            'group_id' => 'required'
         ]);
 
         if ($validator->fails()) {
@@ -311,7 +311,6 @@ class FileController extends Controller
         $paths = [];
 
         foreach ($request->files_id as $id) {
-
             $file = File::where('id', $id)->first();
             $user =  $request->user();
             if ($file->status == false) {
@@ -319,19 +318,13 @@ class FileController extends Controller
                     'message' => "the file is not available !"
                 ], 400);
             }
-
             // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
             $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
                 ->where('group_members.user_id', '=', $user->id)
                 ->where('group_files.file_id', '=', $id);
-            if ($user->id != $file->user_id) {
-                return response()->json([
-                    'message' => "the file is not available !"
-                ], 400);
-            } else if (!$check) {
+            if (!$check) {
                 return response()->json(['message' => "this file isn't available"], 400);
             }
-
             // Check if the file exists
             $filePath =  $file->path;
             if (!file_exists($filePath)) {
@@ -347,10 +340,13 @@ class FileController extends Controller
 
         $zipFileName = 'downloaded_files_' . time() . '.zip';
         $zipFilePath = storage_path("app/public/{$zipFileName}");
+        //copy files to temp folder 
+        foreach ($paths as $path) {
+            FFile::copy($path, storage_path("app/public/files/_" . $request->user()->id . "/temp/"));
+        }
 
         // Create a new ZipArchive
         $zip = new ZipArchive;
-
         if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
             foreach ($paths as $path) {
                 // Add each generated DOCX file to the ZIP archive
@@ -389,7 +385,7 @@ class FileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'file_id' => 'required',
-            'group_id'=>'required'
+            'group_id' => 'required'
         ]);
 
         if ($validator->fails()) {
@@ -421,7 +417,7 @@ class FileController extends Controller
     {
         $user =  Auth::user();
         if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json(['message' => 'Unauthorized'], 400);
         }
 
         $files = File::join('users', 'users.id', '=', 'files.user_id')
