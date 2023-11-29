@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Aspects\GroupFileAspect;
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_file;
@@ -12,7 +11,6 @@ use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Support\Facades\Validator;
 
-#[GroupFileAspect]
 class GroupFileController extends Controller
 {
 
@@ -20,7 +18,72 @@ class GroupFileController extends Controller
     {
         $this->middleware('auth:sanctum');
     }
+    public function read( $group_id,$file_id)
+    {
+        $user =  Auth::user();
+        $file = File::where('id', $file_id)->first();
+        // return $file;
+        if(!$file){
+            return response()->json([
+                'message' => "the file is not exist !"
+            ], 400);
+        }
+        if ($file->status == false && $user->id != $file->booker_id) {
+            return response()->json([
+                'message' => "the file is not available !"
+            ], 400);
+        }
+        // check if file exist in this group
+        $exist = Group_file::where('group_id', '=', $group_id)
+            ->where('file_id', '=', $file_id)
+            ->exists();
+        if (!$exist) {
+            return response()->json([
+                'message' => "the file is not exist in this group !"
+            ], 400);
+        }
 
+        // user in group that file is existed in it
+        $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
+            ->where('group_members.user_id', '=', $user->id)
+            ->where('group_files.file_id', '=', $file_id);
+        if (!$check) {
+            return response()->json(['message' => "this file isn't available"], 400);
+        }
+
+        // Check if the file exists
+        if (!file_exists($file->path)) {
+            return response()->json([
+                'message' => "file is not found"
+            ], 400);
+        }
+
+        // Set the headers for the response
+        // $headers = [
+        //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
+        //     'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
+        // ];
+        // Create and return the streamed response
+        // return response()->stream(
+        //     function () use ($filePath) {
+        //         $stream = fopen($filePath, 'r');
+        //         fpassthru($stream);
+        //         fclose($stream);
+        //     },
+        //     200,
+        //     $headers
+        // );
+        // return response() ->download($filePath, $file->name, $headers);
+
+        $file_content = file_get_contents($file->path, true);
+
+        //store in history
+        // (new HistoryController())->store($group_id, $file_id, $user->id, 'read');
+        return response()->json([
+            'message' => 'done',
+            'file_content' => $file_content
+        ]);
+    }
     public function showGroupFilesToAdding($group_id)
     {
         $user =  Auth::user();
@@ -86,7 +149,7 @@ class GroupFileController extends Controller
 
         return  response()->json([
             'message' => "your file is added!",
-            'deatails' => $file
+            'data' => $file
         ], 200);
     }
 
@@ -94,7 +157,7 @@ class GroupFileController extends Controller
     public function showGroupFiles($group_id)
     {
         $user =  Auth::user();
-        $group = Group::find($group_id)->first()    ;
+        $group = Group::find($group_id)->first();
         if (!$group) {
             return response()->json(['message' => " the group is not exist"], 400);
         }
