@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignId('file_id')->constrained('files');
             $table->foreignId('group_id')->constrained('groups');
             $table->string('event');
+            $table->string('time');
             $table->boolean('proved');
             $table->timestamps();
         });

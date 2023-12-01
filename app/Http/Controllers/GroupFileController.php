@@ -18,12 +18,12 @@ class GroupFileController extends Controller
     {
         $this->middleware('auth:sanctum');
     }
-    public function read( $group_id,$file_id)
+    public function read($group_id, $file_id)
     {
         $user =  Auth::user();
         $file = File::where('id', $file_id)->first();
         // return $file;
-        if(!$file){
+        if (!$file) {
             return response()->json([
                 'message' => "the file is not exist !"
             ], 400);
@@ -78,7 +78,7 @@ class GroupFileController extends Controller
         $file_content = file_get_contents($file->path, true);
 
         //store in history
-        // (new HistoryController())->store($group_id, $file_id, $user->id, 'read');
+        (new HistoryController())->store($group_id, $file_id, $user->id, 'read',true);
         return response()->json([
             'message' => 'done',
             'file_content' => $file_content
@@ -123,7 +123,7 @@ class GroupFileController extends Controller
         }
 
         $user =  Auth::user();
-        $file = File::find($request->file_id)->first();
+        $file = File::where('id', '=', $request->file_id)->first();
 
         // if user in group or not
         $group_member = Group_member::where('group_members.group_id', '=', $request->group_id)
@@ -146,6 +146,7 @@ class GroupFileController extends Controller
         $group_file->group_id = $request->group_id;
         $group_file->file_id = $request->file_id;
         $group_file->save();
+        (new HistoryController)->store($request->group_id, $request->file_id, $user->id, 'add',true);
 
         return  response()->json([
             'message' => "your file is added!",
