@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Aspects\FileAspect;
 use Illuminate\Http\Request;
 use App\Models\File;
+use App\Models\Group;
 use App\Models\Group_file;
 use App\Models\Group_member;
+use App\Models\History;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\File as FFile;
 use Carbon\Carbon;
@@ -22,11 +24,29 @@ class FileController extends Controller
     {
         $this->middleware('auth:sanctum');
     }
-    // public function index(Request $request)
-    // {
-    //     $dt = new DateTime();
-    //     echo $dt->format('d-m-Y');
-    // }
+    public function calculateDaysDifference($date)
+    {
+        // Parse the input date using Carbon
+        $inputDate = Carbon::parse($date);
+
+        // Get the current date
+        $currentDate = Carbon::now();
+
+        // Calculate the difference in days
+        $differenceInDays = $currentDate->diffInDays($inputDate);
+
+        return $differenceInDays;
+    }
+    public function index()
+    {
+        $histories= History::where('event','=','Reserve')
+            ->where('proved','=',false)
+            ->get();
+        // return $histories;
+        foreach($histories as $history){
+            echo $history->created_at . "    "  . $this->calculateDaysDifference($history->created_at)  . "\n";
+        }
+    }
 
 
     public function upload(Request $request)
@@ -63,12 +83,12 @@ class FileController extends Controller
         $file->user_id = $request->user()->id;
         $file->save();
 
-        // $file = new File();
-        // $file->path = $file_path;
-        // $file->name = $request->file('file')->getClientOriginalName();
-        // $file->status = "alaa";
-        // $file->user_id = $request->user()->id;
-        // $file->save();
+        $file = new File();
+        $file->path = $file_path;
+        $file->name = $request->file('file')->getClientOriginalName();
+        $file->status = "alaa";
+        $file->user_id = $request->user()->id;
+        $file->save();
 
         return response()->json([
             'message' => "Uploading is done!",
@@ -110,6 +130,8 @@ class FileController extends Controller
         $input_file->move(storage_path('app/public/files/_' . $request->user()->id . "/temp/"), $input_file->getClientOriginalName());
         $file->copy_path = $file_path;
         $file->save();
+
+        (new HistoryController)->store($request->group_id, $request->file_id, $user->id, 'Update', false);
 
         return response()->json([
             'message' => "Uploading is done!",
@@ -247,7 +269,7 @@ class FileController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
-        }   
+        }
         $paths = [];
         $user =  $request->user();
 
@@ -277,13 +299,13 @@ class FileController extends Controller
             $file->booker_id = $user->id;
 
             $file->saveOrFail();
-            //copy files to temp folder 
-            // FFile::copy($file->path, storage_path("app/public/files/_" . $request->user()->id . "/temp/" . $file->name));
         }
+        foreach ($request->files_id as $id) {
+            (new HistoryController)->store($request->group_id, $id, $user->id, 'Reserve', false);
+        }
+
         $zipFileName = 'downloaded_files_' . time() . '.zip';
         $zipFilePath = storage_path("app/public/{$zipFileName}");
-
-
         // Create a new ZipArchive
         $zip = new ZipArchive;
         if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
@@ -348,6 +370,11 @@ class FileController extends Controller
         $file->booker_id = null;
         $file->copy_path = null;
         $file->save();
+
+        History::where('file_id', '=', $request->file_id)->update(['proved' => true]);
+
+
+        (new HistoryController)->store($request->group_id, $request->file_id, $user->id, 'Unreserve', true);
 
         return response()->json(['message' => "done"], 200);
     }
