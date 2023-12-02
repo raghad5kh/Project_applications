@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Aspects\FileAspect;
 use Illuminate\Http\Request;
 use App\Models\File;
 use App\Models\Group;
@@ -14,10 +13,9 @@ use Illuminate\Support\Facades\File as FFile;
 use Carbon\Carbon;
 use DateTime;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
-// #[FileAspect]
+
 class FileController extends Controller
 {
     public function __construct()
@@ -135,10 +133,8 @@ class FileController extends Controller
 
         return response()->json([
             'message' => "Uploading is done!",
-            'deatails' => $file
         ], 200);
     }
-
     public function rename(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -192,6 +188,7 @@ class FileController extends Controller
             return "Error: " . $e->getMessage();
         }
     }
+
 
     // true -> file is available
     // false -> file not available
@@ -299,7 +296,27 @@ class FileController extends Controller
             $file->booker_id = $user->id;
 
             $file->saveOrFail();
+            //copy files to temp folder
+            // FFile::copy($file->path, storage_path("app/public/files/_" . $request->user()->id . "/temp/" . $file->name));
         }
+        $zipFileName = 'downloaded_files_' . time() . '.zip';
+        $zipFilePath = storage_path("app/public/{$zipFileName}");
+
+
+        // Create a new ZipArchive
+        $zip = new ZipArchive;
+        if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
+            foreach ($paths as $path) {
+                // Add each generated DOCX file to the ZIP archive
+                $docxFileName = basename($path);
+                $zip->addFile($path, $docxFileName);
+            }
+
+            $zip->close();
+        } else {
+            return response()->json(['error' => 'Failed to create ZIP archive'], 400);
+        }
+
         foreach ($request->files_id as $id) {
             (new HistoryController)->store($request->group_id, $id, $user->id, 'Reserve', false);
         }
@@ -320,6 +337,7 @@ class FileController extends Controller
             return response()->json(['error' => 'Failed to create ZIP archive'], 400);
         }
 
+
         // Set the headers for the response
         $headers = [
             'Content-Type' => Storage::mimeType('public/' .  $file->path),
@@ -338,10 +356,14 @@ class FileController extends Controller
         //     200,
         //     $headers
         // );
-        return response()->download($zipFilePath, $zipFileName, $headers)->deleteFileAfterSend(true);
+       
+
+//        return response(['message' => 'done'])->download($zipFilePath, $zipFileName)->deleteFileAfterSend('true');
+
         // return $zipFilePath;
         // return response()->download($zipFilePath, 'files', $headers);
     }
+
 
     public function unBook(Request $request)
     {
@@ -361,7 +383,7 @@ class FileController extends Controller
         if (!$user->id == $file->booker_id) {
             return response()->json(['message' => "you can't do this action"], 400);
         }
-        // return file_exists($file->copy_path); 
+        // return file_exists($file->copy_path);
         if (file_exists($file->copy_path)) {
             $move = FFile::move($file->copy_path, $file->path);
         }
