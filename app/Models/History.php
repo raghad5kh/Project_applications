@@ -11,11 +11,8 @@ class History extends Model
     protected $fillable = [
         'user_id',
         'file_id',
-        'type',
-        'Upload_date',
-        'reservation_date',
-        'Edit_date',
-        'cancellation of reservation_date'
+        'group_id',
+        'event'
     ];
     public function user(){
         return $this->belongsTo(User::class);

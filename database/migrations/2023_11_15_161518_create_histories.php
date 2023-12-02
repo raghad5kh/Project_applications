@@ -19,10 +19,8 @@ return new class extends Migration
             $table->foreignId('file_id')->constrained('files');
             $table->foreignId('group_id')->constrained('groups');
             $table->string('event');
-            // $table->date('Upload_date');
-            // $table->date('reservation_date');
-            // $table->date('Edit_date');
-            // $table->date('cancellation of reservation_date');
+            $table->string('time');
+            $table->boolean('proved');
             $table->timestamps();
         });
     }
