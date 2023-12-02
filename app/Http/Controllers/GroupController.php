@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class GroupController extends Controller
 {
@@ -18,7 +19,7 @@ class GroupController extends Controller
         $this->middleware('auth:sanctum');
     }
 
-
+    //Add Group
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -27,7 +28,7 @@ class GroupController extends Controller
 
         $user = $request->user(); // Get the authenticated user
 
-        // Create the group with fk_admin_id set to the user's ID
+        // Create the group with admin_id set to the user's ID
         $group = Group::query()->create([
             'name' => $data['name'],
             'admin_id' => $user->id,
@@ -36,12 +37,13 @@ class GroupController extends Controller
         $group->group_member()->create([
             'user_id' => $user->id,
         ]);
-
         return response()->json(['message' => 'Group created successfully', 'group' => $group]);
     }
 
+
 //------------------------------------------------------------------------------------------------------------------------
 
+    //Add a member in specific group
     public function groupMember(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -208,7 +210,7 @@ class GroupController extends Controller
 //------------------------------------------------------------------------------------------------------------------------
 
     //delete a member from group
-    public function deleteMember( $group_id , $user_id)
+    public function deleteMember($group_id, $user_id)
     {
         // Check if the user is authenticated
         $authenticatedUser = Auth::user();
@@ -243,5 +245,7 @@ class GroupController extends Controller
 
         return response()->json(['message' => 'The member deleted successfully']);
     }
+
+//------------------------------------------------------------------------------------------------------------------------
 
 }
