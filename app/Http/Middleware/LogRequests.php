@@ -21,6 +21,8 @@ class LogRequests
         Log::channel('custom')->info('Request URL: ' . $request->fullUrl());
         Log::channel('custom')->info('Request Method: ' . $request->method());
         Log::channel('custom')->info('Request IP: ' . $request->ip());
+        Log::channel('custom')->info('User ID: ' . optional($request->user())->id);
+        Log::channel('custom')->info('User Name: ' . optional($request->user())->name);
 
         // Continue processing the request
        $response= $next($request);
