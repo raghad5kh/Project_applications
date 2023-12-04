@@ -78,7 +78,7 @@ class GroupFileController extends Controller
         $file_content = file_get_contents($file->path, true);
 
         //store in history
-        (new HistoryController())->store($group_id, $file_id, $user->id, 'read',true);
+        (new HistoryController())->store($group_id, $file_id, $user->id, 'read', true);
         return response()->json([
             'message' => 'done',
             'file_content' => $file_content
@@ -114,7 +114,7 @@ class GroupFileController extends Controller
     public function addToGroup(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file_id' => 'required',
+            'files_id.*' => 'required',
             'group_id' => 'required'
         ]);
 
@@ -123,34 +123,35 @@ class GroupFileController extends Controller
         }
 
         $user =  Auth::user();
-        $file = File::where('id', '=', $request->file_id)->first();
+        foreach ($request->files_id as $id) {
 
-        // if user in group or not
-        $group_member = Group_member::where('group_members.group_id', '=', $request->group_id)
-            ->where('group_members.user_id', '=', $user->id)
-            ->exists();
+            // if user in group or not
+            $group_member = Group_member::where('group_members.group_id', '=', $request->group_id)
+                ->where('group_members.user_id', '=', $user->id)
+                ->exists();
 
-        if (!$group_member) {
-            return response()->json(['message' => 'you are not a member in this group'], 400);
+            if (!$group_member) {
+                return response()->json(['message' => 'you are not a member in this group'], 400);
+            }
+
+            $group_file = Group_file::where('group_files.file_id', '=', $id)
+                ->where('group_files.group_id', '=', $request->group_id)
+                ->exists();
+            if ($group_file) {
+                return response()->json(['message' => "the file is already exist in this group."], 400);
+            }
+
+            $group_file = new Group_file();
+            $group_file->group_id = $request->group_id;
+            $group_file->file_id = $id;
+            $group_file->save();
         }
-
-
-        $group_file = Group_file::where('group_files.file_id', '=', $request->file_id)
-            ->where('group_files.group_id', '=', $request->group_id)
-            ->exists();
-        if ($group_file) {
-            return response()->json(['message' => "the file is already exist in this group."], 400);
+        foreach ($request->files_id as $id) {
+            (new HistoryController)->store($request->group_id, $id, $user->id, 'add', true);
         }
-
-        $group_file = new Group_file();
-        $group_file->group_id = $request->group_id;
-        $group_file->file_id = $request->file_id;
-        $group_file->save();
-        (new HistoryController)->store($request->group_id, $request->file_id, $user->id, 'add',true);
 
         return  response()->json([
             'message' => "your file is added!",
-            'data' => $file
         ], 200);
     }
 
