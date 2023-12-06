@@ -51,7 +51,7 @@ class HistoryController extends Controller
                 $query->where('histories.proved', '=', 1)
                     ->orwhere('histories.event', '=', 'Reserve');
             })
-            ->select('histories.*', 'users.name as user_name', 'files.name as file_name')
+            ->select('histories.id', 'histories.event','histories.time', 'users.name as user_name', 'files.name as file_name')
             ->get();
         return response(['message' => 'done', 'data' => $history], 200);
     }
@@ -59,16 +59,16 @@ class HistoryController extends Controller
     public function userHistory($group_id, $user_id)
     {
         $history = History::join('users', 'users.id', '=', 'histories.user_id')
-            ->join('files', 'filse.id', '=', 'histories.file_id')
-            ->where('hstories.group_id', '=', $group_id)
+            ->join('files', 'files.id', '=', 'histories.file_id')
+            ->where('histories.group_id', '=', $group_id)
             ->where('histories.user_id', '=', $user_id)
             ->where(function ($query) {
                 $query->where('histories.proved', '=', 1)
                     ->orwhere('histories.event', '=', 'Reserve');
             })
-            ->select('users.name as user_name', 'files.name as file_name', 'histories.*')
+            ->select('users.name as user_name', 'files.name as file_name', 'histories.id', 'histories.event','histories.time')
             ->get();
 
-        return $history;
+        return response(['message' => 'done', 'data' => $history], 200);
     }
 }

@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Route;
 //Route::post('/logout', [AuthController::class,'logout'])->middleware('auth:sanctum');
 
 Route::prefix('auth')->group(function () {
-    Route::middleware(['LogRequests'])->group(function () {
+    Route::middleware(['LogRequests','transactional'])->group(function () {
 
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
@@ -42,7 +42,7 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('group')->group(function () {
 
-    Route::middleware(['LogRequests'])->group(function () {
+    Route::middleware(['LogRequests','transactional'])->group(function () {
 
     Route::post('/store', [GroupController::class, 'store']);
     Route::post('/groupMember', [GroupController::class, 'groupMember']);
@@ -61,7 +61,7 @@ Route::get('test', [FileController::class, 'index']);
 
 Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
-        Route::middleware(['LogRequests'])->group(function () {
+        Route::middleware(['LogRequests','transactional'])->group(function () {
             Route::post('/upload', 'upload');
             Route::get('/read/{file_id}', 'read');
             Route::post('/edit', 'edit');
@@ -76,7 +76,7 @@ Route::prefix('/file')->controller(FileController::class)
 
 Route::prefix('group')->controller(GroupFileController::class)
     ->group(function () {
-        Route::middleware(['LogRequests'])->group(function () {
+        Route::middleware(['LogRequests','transactional'])->group(function () {
 
             Route::post('/add', 'addToGroup');
             Route::get('/{id}', 'showGroupFiles');
@@ -109,7 +109,7 @@ Route::prefix('group/{group_id}')->group(function () {
         });
 });
 
-Route::middleware('transactional')->group(
+Route::middleware(['transactional','LogRequests'])->group(
     function () {
         Route::prefix('group')->controller(GroupFileController::class)
             ->group(function () {
