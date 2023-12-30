@@ -14,14 +14,16 @@ class Kernel extends ConsoleKernel
      * @return void
      */
 
-     protected $commands = [
-        'App\Console\Commands\CustomTask'
+    protected $commands = [
+        'App\Console\Commands\CustomTask',
+        \App\Console\Commands\SwitchDatabase::class
     ];
 
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command('history:check')->everyMinute();
+
         // $schedule->exec("php artisan your:command");
     }
 
@@ -32,7 +34,7 @@ class Kernel extends ConsoleKernel
      */
     protected function commands()
     {
-        $this->load(__DIR__.'/Commands');
+        $this->load(__DIR__ . '/Commands');
 
         require base_path('routes/console.php');
     }

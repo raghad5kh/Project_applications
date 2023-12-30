@@ -85,13 +85,6 @@ class FileController extends Controller
         $file->user_id = $request->user()->id;
         $file->save();
 
-        // return response()->json([
-        //     "user" => $user,
-        //     "file" => $input_file,
-        //     'user_files' => $user->files,
-        //     'save-file' => $file
-        // ]);
-
         
         return response()->json([
             'message' => "Uploading is done!",

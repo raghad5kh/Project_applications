@@ -84,7 +84,7 @@ class GroupFileController extends Controller
         $file_name = basename($file->path);
 
         //store in history
-        (new HistoryController())->store($group_id, $file_id, $user->id, 'read',true);
+        (new HistoryController())->store($group_id, $file_id, $user->id, 'read', true);
         return response()->json([
             'message' => 'done',
             'file_name' => $file_name,
@@ -160,6 +160,7 @@ class GroupFileController extends Controller
             $group_file->save();
         }
         foreach ($request->file_ids as $id) {
+
             (new HistoryController)->store($request->group_id, $id, $user->id, 'add', true);
         }
 
