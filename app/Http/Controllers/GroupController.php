@@ -61,6 +61,7 @@ class GroupController extends Controller
         $group = Group::query()->where('id', $request->group_id)->first();
         $userToAdd = User::query()->where('email', $request->user)->orWhere('username', $request->user)->first();
 
+        
         // Check if the group and user exist
         if (!$group || !$userToAdd) {
             return response()->json(['message' => 'Group or user not found'], 404);
@@ -75,6 +76,19 @@ class GroupController extends Controller
         if ($authenticatedUser->id === $userToAdd->id) {
             return response()->json(['message' => 'You cannot add yourself to the group'], 400);
         }
+
+        $group_member = Group_member::where('group_members.group_id', '=', $group->id)
+            ->where('group_members.user_id', '=', $userToAdd->id)
+            ->exists();
+
+            // return response()->json([
+            //     'uset to add' => $userToAdd,
+            //     'group_members' => $group_member
+            // ]);
+        if ($group_member) {
+            return response()->json(['message' => 'this user is already exist in this group'], 400);
+        }
+
 
         // Create a new GroupMember using the relationships (pluralized method)
         $groupMember = $group->group_member()->create([
@@ -122,14 +136,20 @@ class GroupController extends Controller
 
     public function allGroups()
     {
+        $user =  Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 400);
+        }
+
         // Retrieve all groups with name, admin_id, and associated member count
-        $groups = Group::query()
+        $groups = Group::query()->where('admin_id','=', $user->id)
             ->with('group_member') // Load the associated group members
             ->get();
 
         // Transform the result to include name, admin_id, and member_count
         $formattedGroups = $groups->map(function ($group) {
             return [
+                'group_id' => $group->id,
                 'name' => $group->name,
                 'admin_id' => $group->admin_id,
                 'member_count' => $group->group_member->count(),
@@ -145,11 +165,24 @@ class GroupController extends Controller
     // users for specific group
     public function usersGroup($id)
     {
+        $user =  Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 400);
+        }
+
         // Retrieve the group
         $group = Group::query()->find($id);
 
         if (!$group) {
             return response()->json(['message' => 'Invalid Group ID'], 404);
+        }
+
+        $group_member = Group_member::where('group_members.group_id', '=', $id)
+            ->where('group_members.user_id', '=', $user->id)
+            ->exists();
+
+        if (!$group_member) {
+            return response()->json(['message' => 'you are not a member in this group'], 400);
         }
 
         // Retrieve the admin's username and email
@@ -164,6 +197,7 @@ class GroupController extends Controller
 
         $userDetails = $groupMembers->map(function ($groupMember) {
             return [
+                'member_id' => $groupMember->user->id,
                 'username' => $groupMember->user->username,
                 'email' => $groupMember->user->email,
             ];
@@ -171,6 +205,7 @@ class GroupController extends Controller
 
         return response()->json([
             'message' => 'Users in this group',
+            'group_name' => $group->name,
             'admin_username' => $adminUsername,
             'admin_email' => $adminEmail,
             'group_members' => $userDetails,
@@ -222,6 +257,9 @@ class GroupController extends Controller
             ->where('user_id', $user_id)
             ->first();
 
+        // return response()->json([
+        //     'member' => $groupMember
+        // ]);
         if (!$groupMember) {
             return response()->json(['message' => 'Group member not found in the specified group'], 404);
         }

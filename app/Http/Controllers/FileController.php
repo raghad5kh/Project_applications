@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\File as FFile;
 use Carbon\Carbon;
 use DateTime;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use ZipArchive;
 
@@ -60,9 +61,11 @@ class FileController extends Controller
         $input_file = $request->file('file');
         $user =  $request->user();
 
+       
         if (!$request->hasfile('file')) {
             return response()->json(['message' => $validator->errors()], 400);
         }
+        
 
         foreach ($user->files as $file) {
             if ($file->name == $input_file->getClientOriginalName()) {
@@ -72,6 +75,7 @@ class FileController extends Controller
             }
         }
 
+        
         $file_path = storage_path("app/public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName());
         $input_file->move(storage_path('app/public/files/_' . $request->user()->id . "/"), $input_file->getClientOriginalName());
         $file = new File();
@@ -81,7 +85,7 @@ class FileController extends Controller
         $file->user_id = $request->user()->id;
         $file->save();
 
-
+        
         return response()->json([
             'message' => "Uploading is done!",
         ], 200);
@@ -254,30 +258,35 @@ class FileController extends Controller
     public function book(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'files_id.*' => 'required',
+            'file_ids' => 'required|array',
+            'file_ids.*' => 'required|numeric',
             'group_id' => 'required'
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
+        
         $paths = [];
         $user =  $request->user();
-
-        foreach ($request->files_id as $id) {
+        
+        foreach ($request->file_ids as $id) {
             $file = File::where('id', $id)->first();
             if ($file->status == false) {
                 return response()->json([
                     'message' => "the file is not available !"
                 ], 400);
             }
+            
             // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
             $check = Group_member::join('group_files', 'group_files.group_id', '=', 'group_members.group_id')
                 ->where('group_members.user_id', '=', $user->id)
                 ->where('group_files.file_id', '=', $id);
+                
             if (!$check) {
                 return response()->json(['message' => "this file isn't available"], 400);
             }
+            
             // Check if the file exists
             $filePath =  $file->path;
             if (!file_exists($filePath)) {
@@ -285,20 +294,22 @@ class FileController extends Controller
                     'message' => "file is not found"
                 ], 400);
             }
+            
             $paths[] = $filePath;
             $file->status = false;
             $file->booker_id = $user->id;
-
+           
             $file->saveOrFail();
             //copy files to temp folder
             // FFile::copy($file->path, storage_path("app/public/files/_" . $request->user()->id . "/temp/" . $file->name));
         }
+        
         $zipFileName = 'downloaded_files_' . time() . '.zip';
         $zipFilePath = storage_path("app/public/{$zipFileName}");
 
-
+        
         // Create a new ZipArchive
-        $zip = new ZipArchive;
+        $zip = new ZipArchive();
         if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
             foreach ($paths as $path) {
                 // Add each generated DOCX file to the ZIP archive
@@ -307,55 +318,23 @@ class FileController extends Controller
             }
 
             $zip->close();
+            
         } else {
             return response()->json(['error' => 'Failed to create ZIP archive'], 400);
         }
 
-        foreach ($request->files_id as $id) {
+        foreach ($request->file_ids as $id) {
             (new HistoryController)->store($request->group_id, $id, $user->id, 'Reserve', false);
         }
-
-        $zipFileName = 'downloaded_files_' . time() . '.zip';
-        $zipFilePath = storage_path("app/public/{$zipFileName}");
-        // Create a new ZipArchive
-        $zip = new ZipArchive;
-        if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
-            foreach ($paths as $path) {
-                // Add each generated DOCX file to the ZIP archive
-                $docxFileName = basename($path);
-                $zip->addFile($path, $docxFileName);
-            }
-
-            $zip->close();
-        } else {
-            return response()->json(['error' => 'Failed to create ZIP archive'], 400);
-        }
-
+        
 
         // Set the headers for the response
         $headers = [
             'Content-Type' => Storage::mimeType('public/' .  $file->path),
             'Content-Disposition' => 'attachment; filename="' .  $file->name . '"',
         ];
-        // return "hi";
 
-        // Create and return the streamed response
-        // return response()->stream(
-        //     function () use ($zipFilePath) {
-        //         // foreach ($paths as $filePath) {
-        //         $stream = fopen($zipFilePath, 'r');
-        //         fpassthru($stream);
-        //         fclose($stream);
-        //     },
-        //     200,
-        //     $headers
-        // );
-       
-
-//        return response(['message' => 'done'])->download($zipFilePath, $zipFileName)->deleteFileAfterSend('true');
-
-        // return $zipFilePath;
-        // return response()->download($zipFilePath, 'files', $headers);
+        return response()->download($zipFilePath)->deleteFileAfterSend(true);
     }
 
 
@@ -379,7 +358,7 @@ class FileController extends Controller
         }
         // return file_exists($file->copy_path);
         if (file_exists($file->copy_path)) {
-            $move = FFile::move($file->copy_path, $file->path);
+            $move = File::move($file->copy_path, $file->path);
         }
 
         $file->status = true;
@@ -404,30 +383,42 @@ class FileController extends Controller
         }
 
         $files = File::join('users', 'users.id', '=', 'files.user_id')
-            ->select('files.id', 'files.name as file_name', 'users.name as user_name', 'files.status')
-            ->get();
+            ->leftJoin('users as booker_users', 'files.booker_id', '=', 'booker_users.id')
+            ->select('files.id','files.name as file_name', 'users.name as user_name', 'files.status','booker_users.name as booker_name')
+            ->where('users.id','=',$user->id)->get();
         return response()->json([
             'data' => $files
         ], 200);
     }
 
-    public function delete(Request $request, $id)
+    public function delete($id)
     {
-        $file = File::find($id)->first();
+        $user =  Auth::user();
+        $file = File::where('id', $id)->first();
 
-        if (!$request->user()->id == $file->user_id) {
+        // return response()->json(['file' => $file]);
+        if (!$user->id == $file->user_id) {
             return response()->json([
                 'message' => "you aren't the file owner"
             ], 400);
         }
+
         if ($file->status == false) {
             return response()->json([
                 'message' => "the file is booked !"
             ], 400);
         }
 
+        $fileWithGroups = $file->group_file()->exists();
+        // return response()->json(['file' => $fileWithGroups]);
+
+        if ($fileWithGroups) {
+            return response()->json([
+                'message' => "This file cannot be deleted because it is located inside a group!"
+            ], 400);
+        }
         if (file_exists($file->path)) {
-            FFile::delete($file->path);
+            Storage::delete($file->path);
         }
         $file->delete();
 

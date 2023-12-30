@@ -22,6 +22,7 @@ class GroupFileController extends Controller
     {
         $user =  Auth::user();
         $file = File::where('id', $file_id)->first();
+
         // return $file;
         if (!$file) {
             return response()->json([
@@ -58,6 +59,10 @@ class GroupFileController extends Controller
             ], 400);
         }
 
+        // return response()->json([
+        //     'file' => $file,
+        //     'user' => $user
+        // ]);
         // Set the headers for the response
         // $headers = [
         //     'Content-Type' => Storage::mimeType('public/' .  $file->path),
@@ -76,11 +81,13 @@ class GroupFileController extends Controller
         // return response() ->download($filePath, $file->name, $headers);
 
         $file_content = file_get_contents($file->path, true);
+        $file_name = basename($file->path);
 
         //store in history
         (new HistoryController())->store($group_id, $file_id, $user->id, 'read', true);
         return response()->json([
             'message' => 'done',
+            'file_name' => $file_name,
             'file_content' => $file_content
         ]);
     }
@@ -111,32 +118,38 @@ class GroupFileController extends Controller
     }
 
 
+    
     public function addToGroup(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'files_id.*' => 'required',
-            'group_id' => 'required'
+            'file_ids' => 'required|array',
+            'file_ids.*' => 'required|numeric',
+            'group_id' => 'required|numeric'
         ]);
+
+        
 
         if ($validator->fails()) {
             return response()->json(['message' => "data is unvalied"], 400);
         }
+        
 
         $user =  Auth::user();
-        foreach ($request->files_id as $id) {
-
-            // if user in group or not
-            $group_member = Group_member::where('group_members.group_id', '=', $request->group_id)
-                ->where('group_members.user_id', '=', $user->id)
-                ->exists();
-
-            if (!$group_member) {
-                return response()->json(['message' => 'you are not a member in this group'], 400);
-            }
-
+        
+        // if user in group or not
+        $group_member = Group_member::where('group_members.group_id', '=', $request->group_id)
+            ->where('group_members.user_id', '=', $user->id)
+            ->exists();
+        
+        if (!$group_member) {
+            return response()->json(['message' => 'you are not a member in this group'], 400);
+        }
+        
+        foreach ($request->file_ids as $id) {
             $group_file = Group_file::where('group_files.file_id', '=', $id)
                 ->where('group_files.group_id', '=', $request->group_id)
                 ->exists();
+
             if ($group_file) {
                 return response()->json(['message' => "the file is already exist in this group."], 400);
             }
@@ -146,7 +159,8 @@ class GroupFileController extends Controller
             $group_file->file_id = $id;
             $group_file->save();
         }
-        foreach ($request->files_id as $id) {
+        foreach ($request->file_ids as $id) {
+
             (new HistoryController)->store($request->group_id, $id, $user->id, 'add', true);
         }
 
@@ -173,7 +187,7 @@ class GroupFileController extends Controller
 
         $files = Group_file::join('files', 'group_files.file_id', '=', 'files.id')
             ->leftJoin('users', 'users.id', '=', 'files.booker_id')
-            ->select('files.*', 'users.name as user_name')
+            ->select('files.id','files.name','files.status', 'group_files.created_at', 'users.name as booker_name')
             ->where('group_files.group_id', '=', $group_id)
             ->get();
 
@@ -212,7 +226,12 @@ class GroupFileController extends Controller
     {
         $user =  Auth::user();
         $group = Group::find($group_id)->first();
-        $file = File::find($file_id)->first();
+        $file = File::where('id', $file_id)->first();
+
+        // return response()->json([
+        //     'file' => $file,
+        //     'group' => $group
+        // ]);
         if (!$group) {
             return response()->json(['message' => "group is not exist"], 400);
         } else if (!($user->id == $file->user_id)) {
@@ -224,6 +243,8 @@ class GroupFileController extends Controller
         Group_file::where('group_id', $group_id)
             ->where('file_id', $file_id)
             ->delete();
+        
+        (new HistoryController)->store($group_id, $file_id, $user->id, 'delete', true);
 
         return response()->json([
             'message' => "deleting is done!"
