@@ -32,7 +32,7 @@ use Illuminate\Support\Facades\Route;
 //Route::post('/logout', [AuthController::class,'logout'])->middleware('auth:sanctum');
 
 Route::prefix('auth')->group(function () {
-    Route::middleware(['LogRequests','transactional'])->group(function () {
+    Route::middleware(['LogRequests', 'transactional'])->group(function () {
 
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
@@ -43,7 +43,7 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('group')->group(function () {
 
-    Route::middleware(['LogRequests','transactional'])->group(function () {
+    Route::middleware(['LogRequests', 'transactional'])->group(function () {
 
         Route::post('/store', [GroupController::class, 'store']);
         Route::post('/groupMember', [GroupController::class, 'groupMember']);
@@ -55,33 +55,39 @@ Route::prefix('group')->group(function () {
     });
 
     Route::get('test', [FileController::class, 'index']);
-
-
 });
-
-    Route::prefix('/file')->controller(FileController::class)
+Route::prefix('/file')->controller(FileController::class)
     ->group(function () {
-        Route::middleware(['LogRequests'])->group(function () {
-            Route::get('/read/{file_id}', 'read');
-            Route::get('/myFiles', 'myFiles');
-        });
+        Route::get('/myFiles', 'myFiles');
     });
 
-    
-    
+Route::middleware(['transactional', 'LogRequests'])->group(
+    function () {
+        Route::prefix('group')->controller(GroupFileController::class)
+            ->group(function () {
+                Route::post('/file/add', 'addToGroup');
+                Route::delete('/{group_id}/file/{file_id}', 'removeFromGroup');
+            });
+        Route::prefix('/file')->controller(FileController::class)
+            ->group(function () {
+                Route::post('/upload', 'upload');
+                Route::post('/edit', 'edit');
+                Route::post('/rename', 'rename');
+                Route::post('/book', 'book');
+                Route::post('/unBook', 'unBook');
+                Route::delete('/delete/{file_id}', 'delete');
+            });
+    }
+);
+
 Route::prefix('group')->controller(GroupFileController::class)
     ->group(function () {
-        Route::middleware(['LogRequests','transactional'])->group(function () {
-            Route::post('/file/add', 'addToGroup');
+        Route::middleware(['LogRequests'])->group(function () {
+            Route::get('{group_id}/file/read/{file_id}', 'read');
             Route::get('{group_id}/file/showAll', 'showGroupFiles');
             Route::get('/{group_id}/file/showToAdd', 'showGroupFilesToAdding');
             Route::get('/{group_id}/file/showUnBooked', 'showunBookedFiles');
-            Route::delete('/{group_id}/file/{file_id}', 'removeFromGroup');
-
-        });});
-
-Route::middleware(['LogRequests'])->group(
-    function () {
+        });
         Route::prefix('/history')->controller(HistoryController::class)
             ->group(function () {
                 Route::get('/file/{file_id}', 'fileHistory');
