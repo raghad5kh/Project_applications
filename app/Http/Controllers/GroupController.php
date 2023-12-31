@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_member;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+
 class GroupController extends Controller
 {
     public function __construct()
@@ -39,7 +41,7 @@ class GroupController extends Controller
     }
 
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     //Add a member in specific group
     public function groupMember(Request $request)
@@ -61,7 +63,7 @@ class GroupController extends Controller
         $group = Group::query()->where('id', $request->group_id)->first();
         $userToAdd = User::query()->where('email', $request->user)->orWhere('username', $request->user)->first();
 
-        
+
         // Check if the group and user exist
         if (!$group || !$userToAdd) {
             return response()->json(['message' => 'Group or user not found'], 404);
@@ -81,10 +83,10 @@ class GroupController extends Controller
             ->where('group_members.user_id', '=', $userToAdd->id)
             ->exists();
 
-            // return response()->json([
-            //     'uset to add' => $userToAdd,
-            //     'group_members' => $group_member
-            // ]);
+        // return response()->json([
+        //     'uset to add' => $userToAdd,
+        //     'group_members' => $group_member
+        // ]);
         if ($group_member) {
             return response()->json(['message' => 'this user is already exist in this group'], 400);
         }
@@ -99,7 +101,7 @@ class GroupController extends Controller
     }
 
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     //delete group
     public function destroy($id)
@@ -132,7 +134,7 @@ class GroupController extends Controller
         return response()->json(['message' => 'Group , associated members and the files in this group is deleted successfully']);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     public function allGroups()
     {
@@ -142,17 +144,21 @@ class GroupController extends Controller
         }
 
         // Retrieve all groups with name, admin_id, and associated member count
-        $groups = Group::query()->where('admin_id','=', $user->id)
-            ->with('group_member') // Load the associated group members
-            ->get();
+        $groups = Group_member::query()
+            ->where('user_id', '=', $user->id)
+            ->join('groups','groups.id','=','group_members.group_id')
+            ->get('groups.*');
+        
 
         // Transform the result to include name, admin_id, and member_count
         $formattedGroups = $groups->map(function ($group) {
+            $num=Group_member::where('group_id','=',$group->id)->count();
             return [
+                'msg'=>'hi',
                 'group_id' => $group->id,
                 'name' => $group->name,
                 'admin_id' => $group->admin_id,
-                'member_count' => $group->group_member->count(),
+                'member_count' => $num,
             ];
         });
 
@@ -160,7 +166,7 @@ class GroupController extends Controller
     }
 
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     // users for specific group
     public function usersGroup($id)
@@ -212,7 +218,7 @@ class GroupController extends Controller
         ], 200);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     //display View user groups
     public function viewUserGroup($id)
@@ -240,7 +246,7 @@ class GroupController extends Controller
         ], 200);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     //delete a member from group
     public function deleteMember($group_id, $user_id)
@@ -270,8 +276,8 @@ class GroupController extends Controller
         }
 
         // Check if the group member has booked any files
-        $bookedFilesExist = File::query()->where('user_id', $groupMember->user_id)->whereNotNull('booker_id')->exists();
-
+        $bookedFilesExist = File::query()->where('booker_id', $groupMember->user_id)->exists();
+        
         if ($bookedFilesExist) {
             return response()->json(['message' => 'Sorry. You cannot delete this member because they have booked a file.'], 401);
         }
@@ -282,6 +288,6 @@ class GroupController extends Controller
         return response()->json(['message' => 'The member deleted successfully']);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
 }
