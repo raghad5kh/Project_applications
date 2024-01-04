@@ -78,31 +78,28 @@ class GroupController extends Controller
 
     public function destroy($id)
     {
-        $user = Auth::user();
-
-        // Retrieve the group based on the provided ID
-        $group = Group::find($id);
-
-        // Check if the group exists
-        if (!$group) {
+        $authenticatedUser = Auth::user();
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $group = $this->groupService->getGroupById($id);
+        if (!$group) {// Check if the group exists
             return response()->json(['message' => 'Group not found'], 404);
         }
 
         // Check if the authenticated user owns the group
-        if ($user->id !== $group->admin_id) {
+        if ($authenticatedUser->id !== $group->admin_id) {
             return response()->json(['message' => 'You are not an admin of this group'], 401);
         }
 
         // Check if there are associated files with status '0' for the group (there is no booked file in the group)
-        $filesWithStatusOne = $group->files()->where('status', '=', 0)->exists();
-
+        $filesWithStatusOne = $this->groupService->isGroupHasBookedFile($group);
         if ($filesWithStatusOne) {
             return response()->json(['message' => 'Cannot delete group with associated files'], 422);
         }
 
         // Delete the group and associated group members (groupMembers will be deleted via the deleting event)
-        $group->delete();
-
+        $this->groupService->deleteGroup($group);
         return response()->json(['message' => 'Group , associated members and the files in this group is deleted successfully']);
     }
 

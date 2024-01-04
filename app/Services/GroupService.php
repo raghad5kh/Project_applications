@@ -34,6 +34,17 @@ class GroupService extends Service
             ->exists();
     }
 
+    public function isGroupHasBookedFile($group)
+    {
+        return $group->files()->where('status', '=', 0)->exists();
+    }
+
+    public function deleteGroup($group)
+    {
+        return $group->delete();
+    }
+
+
     public function groupMember($group, $userToAddId)
     { 
         return $group->group_member()->create(['user_id' => $userToAddId]);
