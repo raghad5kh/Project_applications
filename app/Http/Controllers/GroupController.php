@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_member;
@@ -38,7 +39,7 @@ class GroupController extends Controller
     }
 
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     public function groupMember(Request $request)
     {
@@ -73,7 +74,7 @@ class GroupController extends Controller
     }
 
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     public function destroy($id)
     {
@@ -105,7 +106,7 @@ class GroupController extends Controller
         return response()->json(['message' => 'Group , associated members and the files in this group is deleted successfully']);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     public function allGroups()
     {
@@ -116,6 +117,7 @@ class GroupController extends Controller
         }
 
         // Retrieve all groups that contain the authenticated user as a member
+
         $groups = Group_member::query()
             ->where('user_id', '=', $user->id)
             ->join('groups','groups.id','=','group_members.group_id')
@@ -125,6 +127,7 @@ class GroupController extends Controller
         $formattedGroups = $groups->map(function ($group) {
             $num=Group_member::where('group_id','=',$group->id)->count();
             return [
+                'msg'=>'hi',
                 'group_id' => $group->id,
                 'name' => $group->name,
                 'admin_id' => $group->admin_id,
@@ -136,7 +139,7 @@ class GroupController extends Controller
     }
 
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     // users for specific group
     public function usersGroup($id)
@@ -177,7 +180,7 @@ class GroupController extends Controller
         ], 200);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
     //display View user groups
     public function viewUserGroup($id)
@@ -205,7 +208,7 @@ class GroupController extends Controller
         ], 200);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
 
     public function deleteMember($group_id, $user_id)
@@ -229,6 +232,7 @@ class GroupController extends Controller
         }
         // Check if the group member has booked any files
         $bookedFilesExist = File::query()->where('booker_id','=', $groupMember->user_id)->exists();
+
         if ($bookedFilesExist) {
             return response()->json(['message' => 'Sorry. You cannot delete this member because they have booked a file.'], 401);
         }
@@ -236,6 +240,6 @@ class GroupController extends Controller
         return response()->json(['message' => 'The member deleted successfully']);
     }
 
-//------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------
 
 }
