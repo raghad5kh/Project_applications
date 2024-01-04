@@ -26,9 +26,6 @@ class SwitchDatabase extends Command
             $this->error("Invalid connection: $connection");
             return;
         }
-        // $connectionName = Crypt::encryptString(str_random(80));
-        // $connectionName = config('database.default');
-        // $driver = config("database.connections.{$connectionName}.driver");
 
         DB::purge("pgsql");
 
@@ -46,9 +43,6 @@ class SwitchDatabase extends Command
             'search_path' => 'public',
             'sslmode' => 'prefer',
         ]]);
-        
-        // Set the default connection dynamically
-        // config(['database.default' => env('DB_CONNECTION',  $connection)]);
 
         // Now, perform your queries, and Laravel will use the dynamically set connection.
         $this->info("Switched to database connection: $connection");

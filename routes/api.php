@@ -56,7 +56,7 @@ Route::prefix('group')->group(function () {
 
     Route::get('test', [FileController::class, 'index']);
 });
-Route::prefix('/file')->controller(FileController::class)
+Route::middleware(['LogRequests'])->prefix('/file')->controller(FileController::class)
     ->group(function () {
         Route::get('/myFiles', 'myFiles');
     });
@@ -80,15 +80,15 @@ Route::middleware(['transactional', 'LogRequests'])->group(
     }
 );
 
-Route::prefix('group')->controller(GroupFileController::class)
+Route::middleware(['LogRequests'])->prefix('group')
     ->group(function () {
-        Route::middleware(['LogRequests'])->group(function () {
+        Route::controller(GroupFileController::class)->group(function () {
             Route::get('{group_id}/file/read/{file_id}', 'read');
             Route::get('{group_id}/file/showAll', 'showGroupFiles');
             Route::get('/{group_id}/file/showToAdd', 'showGroupFilesToAdding');
             Route::get('/{group_id}/file/showUnBooked', 'showunBookedFiles');
         });
-        Route::prefix('/history')->controller(HistoryController::class)
+        Route::prefix('{group_id}/history')->controller(HistoryController::class)
             ->group(function () {
                 Route::get('/file/{file_id}', 'fileHistory');
                 Route::get('/user/{user_id}', 'userHistory');
