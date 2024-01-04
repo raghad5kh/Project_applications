@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_member;
+use App\Models\Group_file;
 use App\Models\User;
 use App\Services\GroupService;
 use App\Services\UserService;
@@ -152,30 +153,24 @@ class GroupController extends Controller
 
     public function deleteMember($group_id, $user_id)
     {
-        // Check if the user is authenticated
         $authenticatedUser = Auth::user();
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-        // Find the group member based on the provided group_id and user_id
-        $groupMember = Group_member::where('group_id', $group_id)
-            ->where('user_id', $user_id)
-            ->first();
-        if (!$groupMember) {
+        $group = $this->groupService->getGroupById($group_id);
+        $isMemberExist = $this->groupService->isMemberExist($group_id, $user_id);
+        if (!$isMemberExist) {
             return response()->json(['message' => 'Group member not found in the specified group'], 404);
         }
-
-        // Check if the authenticated user is the group admin who created the group
-        if ($authenticatedUser->id !== $groupMember->group->admin_id) {
+        if ($authenticatedUser->id !== $group->admin_id) {
             return response()->json(['message' => 'Unauthorized. You are not the group admin who created the group.'], 401);
         }
         // Check if the group member has booked any files
-        $bookedFilesExist = File::query()->where('booker_id','=', $groupMember->user_id)->exists();
-
+        $bookedFilesExist = $this->groupService->isMemberHasBookedFiles($group_id, $user_id);
         if ($bookedFilesExist) {
             return response()->json(['message' => 'Sorry. You cannot delete this member because they have booked a file.'], 401);
         }
-        $groupMember->delete();
+        $this->groupService->deleteMember($group_id, $user_id);
         return response()->json(['message' => 'The member deleted successfully']);
     }
 

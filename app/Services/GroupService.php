@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Group;
 use App\Models\Group_member;
+use App\Models\Group_file;
+use App\Models\File;
 use App\Services\UserService;
 
 class GroupService extends Service
@@ -98,5 +100,22 @@ class GroupService extends Service
         });
 
         return $userDetails;
+    }
+
+    public function isMemberHasBookedFiles($group_id, $memberId)
+    {
+        return Group_file::join('files', 'group_files.file_id', '=', 'files.id')
+            ->leftJoin('users', 'users.id', '=', 'files.booker_id')
+            ->where('group_files.group_id', '=', $group_id)
+            ->where('files.booker_id', '=', $memberId)
+            ->exists();
+    }
+
+    public function deleteMember($groupId, $memberId)
+    {
+        $groupMember = Group_member::where('group_id', $groupId)
+            ->where('user_id', $memberId)
+            ->first();
+        return $groupMember->delete();
     }
 }
