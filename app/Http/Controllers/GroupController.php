@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\Group_member;
 use App\Models\User;
 use App\Services\GroupService;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 
 class GroupController extends Controller
 {
-    public function __construct(private GroupService $groupService)
+    public function __construct(private GroupService $groupService, private UserService $userService)
     {
         $this->middleware('auth:sanctum');
     }
@@ -27,6 +28,9 @@ class GroupController extends Controller
         ]);
 
         $user = $request->user(); // Get the authenticated user
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
         $group = $this->groupService->store($data['name'], $user->id);
 
@@ -47,28 +51,24 @@ class GroupController extends Controller
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-        // Retrieve the group and user based on their names
-        $group = Group::query()->where('id', $request->group_id)->first();
-        $userToAdd = User::query()->where('email', $request->user)->orWhere('username', $request->user)->first();
+        
+        $group = $this->groupService->getGroupById($request->group_id);
+        $userToAdd = $this->userService->getUserByEmailOrUsername($request->user);
         if (!$group || !$userToAdd) { // Check if the group and user exist
             return response()->json(['message' => 'Group or user not found'], 404);
         }
+
         // Check if the authenticated user is the group admin who created the group
         if ($authenticatedUser->id !== $group->admin_id) {
             return response()->json(['message' => 'Unauthorized. You are not the group admin who created the group.'], 401);
         }
-        // Check if the authenticated user is trying to add themselves to the group
-        if ($authenticatedUser->id === $userToAdd->id) {
-            return response()->json(['message' => 'You cannot add yourself to the group'], 400);
-        }
-        //check if the user want to add is already exist in the group
-        $group_member = Group_member::where('group_members.group_id', '=', $group->id)
-            ->where('group_members.user_id', '=', $userToAdd->id)
-            ->exists();
-        if ($group_member) {
+
+        $isMemberExist = $this->groupService->isMemberExist($group->id, $userToAdd->id);
+        if ($isMemberExist) {//check if the user want to add is already exist in the group
             return response()->json(['message' => 'this user is already exist in this group'], 400);
         }
-        $groupMember = $group->group_member()->create(['user_id' => $userToAdd->id]);
+
+        $groupMember = $this->groupService->groupMember($group, $userToAdd->id);
         return response()->json(['message' => 'Group member added successfully', 'group_member' => $groupMember]);
     }
 
