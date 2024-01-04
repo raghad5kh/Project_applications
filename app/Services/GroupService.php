@@ -49,4 +49,25 @@ class GroupService extends Service
     { 
         return $group->group_member()->create(['user_id' => $userToAddId]);
     }
+    
+    public function getUserGroups($userId)
+    { 
+        $groups = Group_member::query()
+            ->where('user_id', '=', $userId)
+            ->join('groups','groups.id','=','group_members.group_id')
+            ->get('groups.*');
+            
+        $formattedGroups = $groups->map(function ($group) {
+            $num=Group_member::where('group_id','=',$group->id)->count();
+            return [
+                'msg'=>'hi',
+                'group_id' => $group->id,
+                'name' => $group->name,
+                'admin_id' => $group->admin_id,
+                'member_count' => $num,
+            ];
+        });
+
+        return $formattedGroups;
+    }
 }

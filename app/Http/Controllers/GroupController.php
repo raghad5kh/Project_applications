@@ -112,27 +112,8 @@ class GroupController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 400);
         }
-
-        // Retrieve all groups that contain the authenticated user as a member
-
-        $groups = Group_member::query()
-            ->where('user_id', '=', $user->id)
-            ->join('groups','groups.id','=','group_members.group_id')
-            ->get('groups.*');
-
-        // Transform the result to include name, admin_id, and member_count
-        $formattedGroups = $groups->map(function ($group) {
-            $num=Group_member::where('group_id','=',$group->id)->count();
-            return [
-                'msg'=>'hi',
-                'group_id' => $group->id,
-                'name' => $group->name,
-                'admin_id' => $group->admin_id,
-                'member_count' => $num,
-            ];
-        });
-
-        return response()->json(['message' => 'All groups:', 'groups' => $formattedGroups], 200);
+        $userGroups = $this->groupService->getUserGroups($user->id);
+        return response()->json(['message' => 'All groups:', 'groups' => $userGroups], 200);
     }
 
 
