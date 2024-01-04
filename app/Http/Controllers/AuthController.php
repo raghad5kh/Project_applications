@@ -39,10 +39,11 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => 'required|exists:users,email',
+            'email' => 'required|email',
             'password' => 'required',
         ]);
-
+        
+        
         // Use 'email' and 'password' keys in the Auth::attempt method
         if (!Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
             throw ValidationException::withMessages([
@@ -52,7 +53,7 @@ class AuthController extends Controller
 
         // Get the authenticated user
         $user = Auth::user();
-
+        
         // Create a personal access token for the user
         $authToken = $user->createToken('auth-token')->plainTextToken;
 
