@@ -4,9 +4,12 @@ namespace App\Services;
 
 use App\Models\Group;
 use App\Models\Group_member;
+use App\Services\UserService;
 
 class GroupService extends Service
 {
+    public function __construct(private UserService $userService){}
+
     public function store($groupName, $adminId)
     {
        // Create the group with admin_id set to the user's ID
@@ -44,8 +47,7 @@ class GroupService extends Service
         return $group->delete();
     }
 
-
-    public function groupMember($group, $userToAddId)
+    public function addMember($group, $userToAddId)
     { 
         return $group->group_member()->create(['user_id' => $userToAddId]);
     }
@@ -56,7 +58,7 @@ class GroupService extends Service
             ->where('user_id', '=', $userId)
             ->join('groups','groups.id','=','group_members.group_id')
             ->get('groups.*');
-            
+
         $formattedGroups = $groups->map(function ($group) {
             $num=Group_member::where('group_id','=',$group->id)->count();
             return [
@@ -69,5 +71,32 @@ class GroupService extends Service
         });
 
         return $formattedGroups;
+    }
+
+
+    public function getGroupAdmin($groupAdminId)
+    {
+        $admin = $this->userService->getUserById($groupAdminId);
+        $adminUsername = $admin ? $admin->username : null;
+        $adminEmail = $admin ? $admin->email : null;
+        return [
+            'adminUsername' => $adminUsername,
+            'adminEmail' => $adminEmail,
+        ];
+    }
+
+    public function getGroupMembers($groupId)
+    {
+        $groupMembers = Group_member::query()->where('group_id', $groupId)
+            ->with(['user:id,username,email'])->get(['user_id']);
+        $userDetails = $groupMembers->map(function ($groupMember) {
+            return [
+                'member_id' => $groupMember->user->id,
+                'username' => $groupMember->user->username,
+                'email' => $groupMember->user->email,
+            ];
+        });
+
+        return $userDetails;
     }
 }

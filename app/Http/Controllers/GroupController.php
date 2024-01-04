@@ -69,7 +69,7 @@ class GroupController extends Controller
             return response()->json(['message' => 'this user is already exist in this group'], 400);
         }
 
-        $groupMember = $this->groupService->groupMember($group, $userToAdd->id);
+        $groupMember = $this->groupService->addMember($group, $userToAdd->id);
         return response()->json(['message' => 'Group member added successfully', 'group_member' => $groupMember]);
     }
 
@@ -126,68 +126,29 @@ class GroupController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 400);
         }
-        $group = Group::query()->find($id);// Retrieve the group
-        if (!$group) {
-            return response()->json(['message' => 'Invalid Group ID'], 404);
+
+        $group = $this->groupService->getGroupById($id);
+        if (!$group) {// Check if the group exists
+            return response()->json(['message' => 'Group not found'], 404);
         }
-        $group_member = Group_member::where('group_members.group_id', '=', $id)
-            ->where('group_members.user_id', '=', $user->id)->exists();
-        if (!$group_member) {//check if the authenticated user is a member in the group
+
+        $isMemberExist = $this->groupService->isMemberExist($group->id, $user->id);
+        if (!$isMemberExist) {//check if the authenticated user is a member in the group
             return response()->json(['message' => 'you are not a member in this group'], 400);
         }
-        // Retrieve the admin's username and email
-        $admin = User::query()->find($group->admin_id);
-        $adminUsername = $admin ? $admin->username : null;
-        $adminEmail = $admin ? $admin->email : null;
-        // Retrieve the usernames and emails of users in the group
-        $groupMembers = Group_member::query()->where('group_id', $id)
-            ->with(['user:id,username,email'])->get(['user_id']);
-        $userDetails = $groupMembers->map(function ($groupMember) {
-            return [
-                'member_id' => $groupMember->user->id,
-                'username' => $groupMember->user->username,
-                'email' => $groupMember->user->email,
-            ];
-        });
+        $admin = $this->groupService->getGroupAdmin($group->admin_id);
+        $groupMembers = $this->groupService->getGroupMembers($id);
+
         return response()->json([
             'message' => 'Users in this group',
             'group_name' => $group->name,
-            'admin_username' => $adminUsername,
-            'admin_email' => $adminEmail,
-            'group_members' => $userDetails,
+            'admin_username' => $admin['adminUsername'],
+            'admin_email' => $admin['adminEmail'],
+            'group_members' => $groupMembers,
         ], 200);
     }
 
     //------------------------------------------------------------------------------------------------------------------------
-
-    //display View user groups
-    public function viewUserGroup($id)
-    {
-        // Retrieve the groups associated with the user based on the provided ID
-        $userGroups = Group_member::where('user_id', $id)->with('group')->get();
-
-        if ($userGroups->isEmpty()) {
-            return response()->json(['message' => 'User not found or not associated with any group'], 404);
-        }
-
-        $groupData = $userGroups->map(function ($userGroup) {
-            $group = $userGroup->group;
-            $memberCount = $group->group_member->count(); // Count the members for each group
-
-            return [
-                'name' => $group->name,
-                'member_count' => $memberCount,
-            ];
-        });
-
-        return response()->json([
-            'message' => 'Groups associated with the user',
-            'userGroups' => $groupData,
-        ], 200);
-    }
-
-    //------------------------------------------------------------------------------------------------------------------------
-
 
     public function deleteMember($group_id, $user_id)
     {
