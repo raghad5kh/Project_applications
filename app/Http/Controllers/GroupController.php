@@ -6,6 +6,7 @@ use App\Models\File;
 use App\Models\Group;
 use App\Models\Group_member;
 use App\Models\User;
+use App\Services\GroupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 
 class GroupController extends Controller
 {
-    public function __construct()
+    public function __construct(private GroupService $groupService)
     {
         $this->middleware('auth:sanctum');
     }
@@ -28,15 +29,8 @@ class GroupController extends Controller
 
         $user = $request->user(); // Get the authenticated user
 
-        // Create the group with admin_id set to the user's ID
-        $group = Group::query()->create([
-            'name' => $data['name'],
-            'admin_id' => $user->id,
-        ]);
+        $group = $this->groupService->store($data['name'], $user->id);
 
-        $group->group_member()->create([
-            'user_id' => $user->id,
-        ]);
         return response()->json(['message' => 'Group created successfully', 'group' => $group]);
     }
 
