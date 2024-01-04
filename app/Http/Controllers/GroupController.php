@@ -41,13 +41,9 @@ class GroupController extends Controller
 
 //------------------------------------------------------------------------------------------------------------------------
 
-    //Add a member in specific group
     public function groupMember(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'group_id' => 'required',
-            'user' => 'required'
-        ]);
+        $validator = Validator::make($request->all(), ['group_id' => 'required','user' => 'required']);
         if ($validator->fails()) {
             return response()->json(['message' => "data is not valid"], 400);
         }
@@ -56,52 +52,34 @@ class GroupController extends Controller
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-
         // Retrieve the group and user based on their names
         $group = Group::query()->where('id', $request->group_id)->first();
         $userToAdd = User::query()->where('email', $request->user)->orWhere('username', $request->user)->first();
-
-        
-        // Check if the group and user exist
-        if (!$group || !$userToAdd) {
+        if (!$group || !$userToAdd) { // Check if the group and user exist
             return response()->json(['message' => 'Group or user not found'], 404);
         }
-
         // Check if the authenticated user is the group admin who created the group
         if ($authenticatedUser->id !== $group->admin_id) {
             return response()->json(['message' => 'Unauthorized. You are not the group admin who created the group.'], 401);
         }
-
         // Check if the authenticated user is trying to add themselves to the group
         if ($authenticatedUser->id === $userToAdd->id) {
             return response()->json(['message' => 'You cannot add yourself to the group'], 400);
         }
-
+        //check if the user want to add is already exist in the group
         $group_member = Group_member::where('group_members.group_id', '=', $group->id)
             ->where('group_members.user_id', '=', $userToAdd->id)
             ->exists();
-
-            // return response()->json([
-            //     'uset to add' => $userToAdd,
-            //     'group_members' => $group_member
-            // ]);
         if ($group_member) {
             return response()->json(['message' => 'this user is already exist in this group'], 400);
         }
-
-
-        // Create a new GroupMember using the relationships (pluralized method)
-        $groupMember = $group->group_member()->create([
-            'user_id' => $userToAdd->id,
-        ]);
-
+        $groupMember = $group->group_member()->create(['user_id' => $userToAdd->id]);
         return response()->json(['message' => 'Group member added successfully', 'group_member' => $groupMember]);
     }
 
 
 //------------------------------------------------------------------------------------------------------------------------
 
-    //delete group
     public function destroy($id)
     {
         $user = Auth::user();
@@ -119,7 +97,7 @@ class GroupController extends Controller
             return response()->json(['message' => 'You are not an admin of this group'], 401);
         }
 
-        // Check if there are associated files with status '0' for the group
+        // Check if there are associated files with status '0' for the group (there is no booked file in the group)
         $filesWithStatusOne = $group->files()->where('status', '=', 0)->exists();
 
         if ($filesWithStatusOne) {
@@ -136,23 +114,26 @@ class GroupController extends Controller
 
     public function allGroups()
     {
+        //get the authenticated user
         $user =  Auth::user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 400);
         }
 
-        // Retrieve all groups with name, admin_id, and associated member count
-        $groups = Group::query()->where('admin_id','=', $user->id)
-            ->with('group_member') // Load the associated group members
-            ->get();
+        // Retrieve all groups that contain the authenticated user as a member
+        $groups = Group_member::query()
+            ->where('user_id', '=', $user->id)
+            ->join('groups','groups.id','=','group_members.group_id')
+            ->get('groups.*');
 
         // Transform the result to include name, admin_id, and member_count
         $formattedGroups = $groups->map(function ($group) {
+            $num=Group_member::where('group_id','=',$group->id)->count();
             return [
                 'group_id' => $group->id,
                 'name' => $group->name,
                 'admin_id' => $group->admin_id,
-                'member_count' => $group->group_member->count(),
+                'member_count' => $num,
             ];
         });
 
@@ -165,36 +146,26 @@ class GroupController extends Controller
     // users for specific group
     public function usersGroup($id)
     {
-        $user =  Auth::user();
+        $user =  Auth::user();//get the authenticated user
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 400);
         }
-
-        // Retrieve the group
-        $group = Group::query()->find($id);
-
+        $group = Group::query()->find($id);// Retrieve the group
         if (!$group) {
             return response()->json(['message' => 'Invalid Group ID'], 404);
         }
-
         $group_member = Group_member::where('group_members.group_id', '=', $id)
-            ->where('group_members.user_id', '=', $user->id)
-            ->exists();
-
-        if (!$group_member) {
+            ->where('group_members.user_id', '=', $user->id)->exists();
+        if (!$group_member) {//check if the authenticated user is a member in the group
             return response()->json(['message' => 'you are not a member in this group'], 400);
         }
-
         // Retrieve the admin's username and email
         $admin = User::query()->find($group->admin_id);
         $adminUsername = $admin ? $admin->username : null;
         $adminEmail = $admin ? $admin->email : null;
-
         // Retrieve the usernames and emails of users in the group
         $groupMembers = Group_member::query()->where('group_id', $id)
-            ->with(['user:id,username,email'])
-            ->get(['user_id']);
-
+            ->with(['user:id,username,email'])->get(['user_id']);
         $userDetails = $groupMembers->map(function ($groupMember) {
             return [
                 'member_id' => $groupMember->user->id,
@@ -202,7 +173,6 @@ class GroupController extends Controller
                 'email' => $groupMember->user->email,
             ];
         });
-
         return response()->json([
             'message' => 'Users in this group',
             'group_name' => $group->name,
@@ -242,24 +212,18 @@ class GroupController extends Controller
 
 //------------------------------------------------------------------------------------------------------------------------
 
-    //delete a member from group
+
     public function deleteMember($group_id, $user_id)
     {
         // Check if the user is authenticated
         $authenticatedUser = Auth::user();
-
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-
         // Find the group member based on the provided group_id and user_id
         $groupMember = Group_member::where('group_id', $group_id)
             ->where('user_id', $user_id)
             ->first();
-
-        // return response()->json([
-        //     'member' => $groupMember
-        // ]);
         if (!$groupMember) {
             return response()->json(['message' => 'Group member not found in the specified group'], 404);
         }
@@ -268,17 +232,12 @@ class GroupController extends Controller
         if ($authenticatedUser->id !== $groupMember->group->admin_id) {
             return response()->json(['message' => 'Unauthorized. You are not the group admin who created the group.'], 401);
         }
-
         // Check if the group member has booked any files
-        $bookedFilesExist = File::query()->where('user_id', $groupMember->user_id)->whereNotNull('booker_id')->exists();
-
+        $bookedFilesExist = File::query()->where('booker_id','=', $groupMember->user_id)->exists();
         if ($bookedFilesExist) {
             return response()->json(['message' => 'Sorry. You cannot delete this member because they have booked a file.'], 401);
         }
-
-        // Delete the group member
         $groupMember->delete();
-
         return response()->json(['message' => 'The member deleted successfully']);
     }
 

@@ -10,6 +10,7 @@ use Exception;
 use GuzzleHttp\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use PHPUnit\Framework\CoveredCodeNotExecutedException;
 
 class HistoryController extends Controller
@@ -42,7 +43,12 @@ class HistoryController extends Controller
     }
     public function fileHistory($group_id, $file_id)
     {
-        // $user=$request->user();
+        //get the authenticated user
+        $user =  Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 400);
+        }
+
         $history = History::join('users', 'users.id', '=', 'histories.user_id')
             ->join('files', 'files.id', '=', 'histories.file_id')
             ->where('histories.group_id', '=', $group_id)
@@ -58,6 +64,12 @@ class HistoryController extends Controller
 
     public function userHistory($group_id, $user_id)
     {
+         //get the authenticated user
+         $user =  Auth::user();
+         if (!$user) {
+             return response()->json(['message' => 'Unauthorized'], 400);
+         }
+
         $history = History::join('users', 'users.id', '=', 'histories.user_id')
             ->join('files', 'files.id', '=', 'histories.file_id')
             ->where('histories.group_id', '=', $group_id)

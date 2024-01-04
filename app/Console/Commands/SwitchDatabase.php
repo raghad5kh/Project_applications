@@ -7,24 +7,42 @@ use Illuminate\Support\Facades\DB;
 
 class SwitchDatabase extends Command
 {
-    protected $signature = 'switch:database {connection}';
+    protected $signature = 'switch:database {connection} {db_name} {port} {username} {password=""}';
 
     protected $description = 'Switch the database connection dynamically';
 
     public function handle()
     {
-        $connection = $this->argument('connection');
+        $connection=$this->argument('connection');
+        $db_name=$this->argument('db_name');
+        $port=$this->argument('port');
+        $username=$this->argument('username');
+        $password=$this->argument('password');
 
         // Validate that the specified connection exists in the configuration
         $validConnections = config('database.connections');
-        // echo $connection ."\n". $validConnections;
+
         if (!array_key_exists($connection, $validConnections)) {
             $this->error("Invalid connection: $connection");
             return;
         }
-        DB::purge('pgsql');
-        // Set the default connection dynamically
-        config(['database.default' => env('DB_CONNECTION',  $connection)]);
+
+        DB::purge("pgsql");
+
+        config(['database.connections'=>  [
+            'driver' => $connection,
+            'url' => env('DATABASE_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => $port,
+            'database' => $db_name,
+            'username' => env('DB_USERNAME', $username),
+            'password' => env('DB_PASSWORD',$password),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ]]);
 
         // Now, perform your queries, and Laravel will use the dynamically set connection.
         $this->info("Switched to database connection: $connection");
