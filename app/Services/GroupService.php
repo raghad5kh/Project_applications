@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\File;
-use App\Models\User;
 use App\Models\Group;
+use App\Models\Group_member;
 
 class GroupService extends Service
 {
@@ -21,5 +20,22 @@ class GroupService extends Service
         ]);
         
         return $group;
+    }
+
+    public function getGroupById($groupId) 
+    {
+        return Group::query()->where('id', $groupId)->first();
+    }
+
+    public function isMemberExist($groupId, $memberId)
+    {
+        return Group_member::where('group_members.group_id', '=', $groupId)
+            ->where('group_members.user_id', '=', $memberId)
+            ->exists();
+    }
+
+    public function groupMember($group, $userToAddId)
+    { 
+        return $group->group_member()->create(['user_id' => $userToAddId]);
     }
 }
