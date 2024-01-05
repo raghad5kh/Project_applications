@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Models\Group_file;
 use App\Models\Group_member;
 use App\Models\History;
+use App\Services\FileService;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\File as FFile;
 use Carbon\Carbon;
@@ -19,7 +20,7 @@ use ZipArchive;
 
 class FileController extends Controller
 {
-    public function __construct()
+    public function __construct(private FileService $fileService)
     {
         $this->middleware('auth:sanctum');
     }
@@ -56,33 +57,19 @@ class FileController extends Controller
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        $input_file = $request->file('file');
-
-        //get the authenticated user
-        $user =  $request->user();
-
+        $authenticatedUser =  $request->user();
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
         if (!$request->hasfile('file')) {
             return response()->json(['message' => $validator->errors()], 400);
         }
-        //check if the user has an existing file with the same name as the uploaded file.
-        foreach ($user->files as $file) {
-            if ($file->name == $input_file->getClientOriginalName()) {
-                return response()->json([
-                    'message' => "The name is recently used, please change the name."
-                ], 400);
-            }
+        $result = $this->fileService->uploadFile($authenticatedUser, $request->file('file'));
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
         }
-        $file_path = storage_path("app/public/files/_" . $request->user()->id . "/" . $input_file->getClientOriginalName());
-        $input_file->move(storage_path('app/public/files/_' . $request->user()->id . "/"), $input_file->getClientOriginalName());
-        $file = new File();
-        $file->path = $file_path;
-        $file->name = $request->file('file')->getClientOriginalName();
-        $file->status = true;
-        $file->user_id = $request->user()->id;
-        $file->save();
-
         return response()->json([
-            'message' => "Uploading is done!",
+            'message' => $result['message']
         ], 200);
     }
 
