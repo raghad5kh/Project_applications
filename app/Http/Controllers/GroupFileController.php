@@ -2,14 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\File;
-use App\Models\Group;
-use App\Models\Group_file;
-use App\Models\Group_member;
 use App\Services\GroupFileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Support\Facades\Validator;
 
 class GroupFileController extends Controller
@@ -22,44 +17,107 @@ class GroupFileController extends Controller
 
     public function read($group_id, $file_id)
     {
+        $authenticatedUser = Auth::user(); //get the authenticated user
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
-        $read = $this->groupFileService->read($group_id, $file_id);
-        return $read;
+        $result = $this->groupFileService->read($authenticatedUser->id, $group_id, $file_id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json([
+            'file_name' => $result['file_name'],
+            'file_content' => $result['file_content']
+        ], 200);
 
     }
 
     public function showGroupFilesToAdding($group_id)
     {
-
-        $show = $this->groupFileService->showGroupFilesToAdding($group_id);
-        return $show;
+        $authenticatedUser = Auth::user(); //get the authenticated user
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $result = $this->groupFileService->showGroupFilesToAdding($group_id, $authenticatedUser->id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json([
+            'data' => $result['data']
+        ], 200);
 
     }
 
     public function addToGroup(Request $request)
     {
-        $add = $this->groupFileService->addToGroup($request);
-        return $add;
+        $validator = Validator::make($request->all(), [
+            'file_ids' => 'required|array',
+            'file_ids.*' => 'required|numeric',
+            'group_id' => 'required|numeric'
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => "data is unvalied"], 400);
+        }
+        $authenticatedUser = Auth::user();//get the authenticated user
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $result = $this->groupFileService->addToGroup($request->group_id, $authenticatedUser->id, $request->file_ids);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json([
+            'message' => $result['message']
+        ], 200);;
     }
 
     // show group files
     public function showGroupFiles($group_id)
     {
-        $showGroup = $this->groupFileService->showGroupFiles($group_id);
-        return $showGroup;
+        $authenticatedUser = Auth::user();//get the authenticated user
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $result = $this->groupFileService->showGroupFiles($group_id,$authenticatedUser->id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json([
+            'data' => $result['data']
+        ], 200);
     }
 
 
     public function showunBookedFiles($group_id)
     {
-        $unBooked = $this->groupFileService->showunBookedFiles($group_id);
-        return $unBooked;
+        $authenticatedUser = Auth::user();//get the authenticated user
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $result = $this->groupFileService->showunBookedFiles($group_id,$authenticatedUser->id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json([
+            'message' => $result['message'],
+            'data' => $result['data']
+        ], 200);
     }
 
     public function removeFromGroup($group_id, $file_id)
     {
-        $remove = $this->groupFileService->removeFromGroup($group_id, $file_id);
-        return $remove;
+        $authenticatedUser = Auth::user();//get the authenticated user
+        if (!$authenticatedUser) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $result = $this->groupFileService->removeFromGroup($authenticatedUser->id, $group_id, $file_id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json([
+            'message' => $result['message']
+        ], 200);
 
     }
 }
