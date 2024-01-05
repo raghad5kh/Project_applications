@@ -34,9 +34,9 @@ class GroupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $group = $this->groupService->store($data['name'], $user->id);
+        $result = $this->groupService->store($data['name'], $user->id);
 
-        return response()->json(['message' => 'Group created successfully', 'group' => $group]);
+        return response()->json(['message' => $result['message'], 'group' => $result['group']], 200);
     }
 
 
@@ -53,25 +53,12 @@ class GroupController extends Controller
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-        
-        $group = $this->groupService->getGroupById($request->group_id);
-        $userToAdd = $this->userService->getUserByEmailOrUsername($request->user);
-        if (!$group || !$userToAdd) { // Check if the group and user exist
-            return response()->json(['message' => 'Group or user not found'], 404);
-        }
 
-        // Check if the authenticated user is the group admin who created the group
-        if ($authenticatedUser->id !== $group->admin_id) {
-            return response()->json(['message' => 'Unauthorized. You are not the group admin who created the group.'], 401);
+        $result = $this->groupService->addMember($authenticatedUser->id, $request->group_id, $request->user);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
         }
-
-        $isMemberExist = $this->groupService->isMemberExist($group->id, $userToAdd->id);
-        if ($isMemberExist) {//check if the user want to add is already exist in the group
-            return response()->json(['message' => 'this user is already exist in this group'], 400);
-        }
-
-        $groupMember = $this->groupService->addMember($group, $userToAdd->id);
-        return response()->json(['message' => 'Group member added successfully', 'group_member' => $groupMember]);
+        return response()->json(['message' => $result['message'], 'group_member' => $result['member']], 200);
     }
 
 
@@ -83,25 +70,12 @@ class GroupController extends Controller
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-        $group = $this->groupService->getGroupById($id);
-        if (!$group) {// Check if the group exists
-            return response()->json(['message' => 'Group not found'], 404);
-        }
-
-        // Check if the authenticated user owns the group
-        if ($authenticatedUser->id !== $group->admin_id) {
-            return response()->json(['message' => 'You are not an admin of this group'], 401);
-        }
-
-        // Check if there are associated files with status '0' for the group (there is no booked file in the group)
-        $filesWithStatusOne = $this->groupService->isGroupHasBookedFile($group);
-        if ($filesWithStatusOne) {
-            return response()->json(['message' => 'Cannot delete group with associated files'], 422);
-        }
-
         // Delete the group and associated group members (groupMembers will be deleted via the deleting event)
-        $this->groupService->deleteGroup($group);
-        return response()->json(['message' => 'Group , associated members and the files in this group is deleted successfully']);
+        $result = $this->groupService->deleteGroup($authenticatedUser->id, $id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json(['message' => $result['message']], 200);
     }
 
     //------------------------------------------------------------------------------------------------------------------------
@@ -113,8 +87,8 @@ class GroupController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 400);
         }
-        $userGroups = $this->groupService->getUserGroups($user->id);
-        return response()->json(['message' => 'All groups:', 'groups' => $userGroups], 200);
+        $result = $this->groupService->getUserGroups($user->id);
+        return response()->json(['message' => $result['message'], 'groups' => $result['allGroups']], 200);
     }
 
 
@@ -127,25 +101,16 @@ class GroupController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 400);
         }
-
-        $group = $this->groupService->getGroupById($id);
-        if (!$group) {// Check if the group exists
-            return response()->json(['message' => 'Group not found'], 404);
+        $result = $this->groupService->getGroupMembers($user->id, $id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
         }
-
-        $isMemberExist = $this->groupService->isMemberExist($group->id, $user->id);
-        if (!$isMemberExist) {//check if the authenticated user is a member in the group
-            return response()->json(['message' => 'you are not a member in this group'], 400);
-        }
-        $admin = $this->groupService->getGroupAdmin($group->admin_id);
-        $groupMembers = $this->groupService->getGroupMembers($id);
-
         return response()->json([
-            'message' => 'Users in this group',
-            'group_name' => $group->name,
-            'admin_username' => $admin['adminUsername'],
-            'admin_email' => $admin['adminEmail'],
-            'group_members' => $groupMembers,
+            'message' => $result['message'],
+            'group_name' => $result['group']['name'],
+            'admin_username' => $result['admin']['adminUsername'],
+            'admin_email' => $result['admin']['adminEmail'],
+            'group_members' => $result['userDetails'],
         ], 200);
     }
 
@@ -157,21 +122,12 @@ class GroupController extends Controller
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-        $group = $this->groupService->getGroupById($group_id);
-        $isMemberExist = $this->groupService->isMemberExist($group_id, $user_id);
-        if (!$isMemberExist) {
-            return response()->json(['message' => 'Group member not found in the specified group'], 404);
+        
+        $result = $this->groupService->deleteMember($authenticatedUser->id, $group_id, $user_id);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
         }
-        if ($authenticatedUser->id !== $group->admin_id) {
-            return response()->json(['message' => 'Unauthorized. You are not the group admin who created the group.'], 401);
-        }
-        // Check if the group member has booked any files
-        $bookedFilesExist = $this->groupService->isMemberHasBookedFiles($group_id, $user_id);
-        if ($bookedFilesExist) {
-            return response()->json(['message' => 'Sorry. You cannot delete this member because they have booked a file.'], 401);
-        }
-        $this->groupService->deleteMember($group_id, $user_id);
-        return response()->json(['message' => 'The member deleted successfully']);
+        return response()->json(['message' => $result['message']], 200);
     }
 
     //------------------------------------------------------------------------------------------------------------------------
