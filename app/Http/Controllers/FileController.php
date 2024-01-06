@@ -56,11 +56,9 @@ class FileController extends Controller
         }
 
         $result = $this->fileService->uploadFile($authenticatedUser, $request->file('file'));
-
         if (isset($result['status'])) {
             return response()->json(['message' => $result['message']], $result['status']);
         }
-
         return response()->json([
             'message' => $result['message']
         ], 200);

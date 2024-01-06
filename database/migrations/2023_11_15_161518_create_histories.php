@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users');
             $table->foreignId('file_id')->constrained('files');
-            $table->foreignId('group_id')->constrained('groups');
+            $table->foreignId('group_id')->constrained('groups')->onDelete('cascade');
             $table->string('event');
             $table->string('time');
             $table->boolean('proved');
