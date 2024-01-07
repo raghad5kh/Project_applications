@@ -182,7 +182,7 @@ class FileController extends Controller
         }
 
         $user = $request->user(); //get the authenticated user
-        $result = $this->fileService->unBookFile($user, $request->file->id, $request->group_id);
+        $result = $this->fileService->unBookFile($user, $request->file_id, $request->group_id);
         return $result;
     }
 
@@ -195,7 +195,7 @@ class FileController extends Controller
             return response()->json(['message' => 'Unauthorized'], 400);
         }
 
-        //get all user file with the file booker name 
+        //get all user file with the file booker name
         $files = $this->fileService->myFiles($user);
 
         return response()->json([
