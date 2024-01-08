@@ -135,7 +135,7 @@ class GroupFileService extends Service
         return ['data' => $files];
     }
 
-    public function showunBookedFiles($group_id)
+    public function showunBookedFiles($group_id, $member_id)
     {
         $group = $this->groupService->getGroupById($group_id);
         if (!$group) {

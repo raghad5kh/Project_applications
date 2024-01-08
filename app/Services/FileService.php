@@ -41,15 +41,15 @@ class FileService extends Service
             ->where('group_files.file_id', '=', $file_id);
 
         if (!$check) {
-            return response()->json(['message' => "this file isn't available", 'status' => 400], 400);
+            return ['message' => "this file isn't available", 'status' => 400];
         }
 
         if ($file->status != false || $user->id != $file->booker_id) {
-            return response()->json(['message' => "forbidden !", 'status' => 400], 400);
+            return ['message' => "forbidden !", 'status' => 400];
         }
 
         if ($file->name != $input_file->getClientOriginalName()) {
-            return response()->json(['message' => "the name and extension must be similar to the orginal file !", 'status' => 400], 400);
+            return ['message' => "the name and extension must be similar to the orginal file !", 'status' => 400];
         }
 
         $file_path = storage_path("app/public/files/_" . $user->id . "/temp/" . $input_file->getClientOriginalName());
@@ -66,9 +66,9 @@ class FileService extends Service
         foreach ($file_ids as $id) {
             $file = File::where('id', $id)->first();
             if ($file->status == false) {
-                return response()->json([
-                    'message' => "the file is not available !"
-                ], 400);
+                return [
+                    'message' => "the file is not available !",'status' => 400 
+                ];
             }
 
             // تشييك اذا هو موجود بمجموعة فيها هاد الفايل أو ماله المالك للملف
@@ -77,15 +77,15 @@ class FileService extends Service
                 ->where('group_files.file_id', '=', $id);
 
             if (!$check) {
-                return response()->json(['message' => "this file isn't available"], 400);
+                return ['message' => "this file isn't available", 'status' => 400];
             }
 
             // Check if the file exists
             $filePath =  $file->path;
             if (!file_exists($filePath)) {
-                return response()->json([
-                    'message' => "file is not found"
-                ], 400);
+                return [
+                    'message' => "file is not found", 'status' => 400
+                ];
             }
             $paths[] = $filePath;
             $file->status = false;
@@ -105,7 +105,7 @@ class FileService extends Service
             }
             $zip->close();
         } else {
-            return response()->json(['error' => 'Failed to create ZIP archive'], 400);
+            return ['error' => 'Failed to create ZIP archive', 'status' => 400];
         }
         //store in history
         foreach ($file_ids as $id) {
@@ -120,7 +120,7 @@ class FileService extends Service
         $file = File::find($file_id);
 
         if (!$user->id == $file->booker_id) {
-            return response()->json(['message' => "you can't do this action"], 400);
+            return ['message' => "you can't do this action", 'status' => 400];
         }
 
         if (file_exists($file->copy_path)) {
@@ -137,7 +137,7 @@ class FileService extends Service
         //store in the history
         (new HistoryController)->store($group_id, $file_id, $user->id, 'Unreserve', true);
 
-        return response()->json(['message' => "file unBooked successfully"], 200);
+        return ['message' => "file unBooked successfully"];
     }
 
     public function myFiles($user)
@@ -155,33 +155,33 @@ class FileService extends Service
         $file = File::where('id', $id)->first();
         //check if the authenticated user is the owner of the file
         if (!$user->id == $file->user_id) {
-            return response()->json([
-                'message' => "you aren't the file owner"
-            ], 400);
+            return [
+                'message' => "you aren't the file owner", 'status' => 400
+            ];
         }
 
         //check if the file is booked 
         if ($file->status == false) {
-            return response()->json([
-                'message' => "the file is booked!"
-            ], 400);
+            return [
+                'message' => "the file is booked!", 'status' => 400
+            ];
         }
 
         //check if the file is located inside a group
         $fileWithGroups = $file->group_file()->exists();
         if ($fileWithGroups) {
-            return response()->json([
-                'message' => "This file cannot be deleted because it is located inside a group!"
-            ], 400);
+            return [
+                'message' => "This file cannot be deleted because it is located inside a group!", 'status' => 400
+            ];
         }
         if (file_exists($file->path)) {
             Storage::delete($file->path);
         }
         $file->delete();
 
-        return response()->json([
+        return [
             'message' => "deleting is done!"
-        ], 200);
+        ];
     }
 }
 

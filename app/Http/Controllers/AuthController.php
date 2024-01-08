@@ -33,7 +33,6 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required',
         ]);
-        // Use 'email' and 'password' keys in the Auth::attempt method
         if (!Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
@@ -43,7 +42,6 @@ class AuthController extends Controller
         $user = Auth::user();
         $result = $this->authenService->login($user);
         return response()->json(['message' => $result['message'], 'user' => $result['user'], 'Token' => $result['authToken']], 200);
-
 
     }
 

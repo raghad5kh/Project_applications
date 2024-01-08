@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users');
-            $table->foreignId('file_id')->constrained('files');
+            $table->foreignId('file_id')->constrained('files')->onDelete('cascade');
             $table->foreignId('group_id')->constrained('groups')->onDelete('cascade');
             $table->string('event');
             $table->string('time');

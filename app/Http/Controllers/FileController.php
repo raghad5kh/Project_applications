@@ -44,15 +44,12 @@ class FileController extends Controller
         $validator = Validator::make($request->all(), [
             'file' => 'required|file'
         ]);
-        if ($validator->fails()) {
+        if ($validator->fails() || !$request->hasfile('file')) {
             return response()->json(['message' => $validator->errors()], 400);
         }
         $authenticatedUser =  $request->user();
         if (!$authenticatedUser) {
             return response()->json(['message' => 'Unauthorized'], 401);
-        }
-        if (!$request->hasfile('file')) {
-            return response()->json(['message' => $validator->errors()], 400);
         }
 
         $result = $this->fileService->uploadFile($authenticatedUser, $request->file('file'));
@@ -77,68 +74,11 @@ class FileController extends Controller
 
         $user = $request->user(); //get the authenticated user
         $result = $this->fileService->edaitFile($user, $request->file_id, $request->group_id, $request->file('file'));
-
-        return $result;
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json(['message' => $result['message']], 200);
     }
-
-    public function rename(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:20',
-            'id' => 'required'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['message' => $validator->errors()], 400);
-        }
-        $user = $request->user();
-
-        $input_file = File::where('id', $request->id)->first();
-
-        foreach ($user->files as $file) {
-            if ($file->name == $request->name) {
-                return response()->json([
-                    'message' => "The name is recently used, please change the name."
-                ], 400);
-            }
-        }
-
-        if (!$request->user()->id == $input_file->user_id) {
-            return response()->json([
-                'message' => "forbidden!"
-            ], 400);
-        } else if ($input_file->status == false) {
-            return response()->json([
-                'message' => "The file is booked !."
-            ], 400);
-        }
-
-        $oldFilePath = $input_file->path;
-
-        // Get the extension
-        $fileInfo = pathinfo($oldFilePath);
-        $extension = $fileInfo['extension'];
-        // New file path
-        $newFilePath = storage_path("app/public/files/_" . $request->user()->id . "/" . $request->name . "." . $extension);
-        try {
-            // Rename the file
-            FFile::move($oldFilePath, $newFilePath);
-            $input_file->path = $newFilePath;
-            $input_file->name = $request->name;
-            $input_file->saveOrFail();
-            return response()->json([
-                'message' => 'done',
-                'file' => $input_file
-            ], 200);
-        } catch (\Exception $e) {
-            return "Error: " . $e->getMessage();
-        }
-    }
-
-
-    // true -> file is available
-    // false -> file not available
-
 
     public function book(Request $request)
     {
@@ -154,19 +94,17 @@ class FileController extends Controller
 
 
         $user =  $request->user();
-        $zipFilePath = $this->fileService->bookFile($user, $request->group_id, $request->file_ids);
-        // Set the headers for the response
+        $result = $this->fileService->bookFile($user, $request->group_id, $request->file_ids);
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
 
-        if (!file_exists($zipFilePath)) {
+        if (!file_exists($result)) {
             return response()->json([
                 'message' => "'Failed to create ZIP archive"
             ], 400);
         }
-        // $headers = [
-        //     'Content-Type' => Storage::mimeType('public/' .  basename($zipFilePath)),
-        //     'Content-Disposition' => 'attachment; filename="' . basename($zipFilePath) . '"',
-        // ];
-        return response()->download($zipFilePath)->deleteFileAfterSend(true);
+        return response()->download($result)->deleteFileAfterSend(true);
     }
 
 
@@ -183,7 +121,10 @@ class FileController extends Controller
 
         $user = $request->user(); //get the authenticated user
         $result = $this->fileService->unBookFile($user, $request->file_id, $request->group_id);
-        return $result;
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json(['message' => $result['message']], 200);
     }
 
 
@@ -208,6 +149,9 @@ class FileController extends Controller
         //get the authenticated user
         $user =  Auth::user();
         $result = $this->fileService->deleteFile($user, $id);
-        return $result;
+        if (isset($result['status'])) {
+            return response()->json(['message' => $result['message']], $result['status']);
+        }
+        return response()->json(['message' => $result['message']], 200);
     }
 }
